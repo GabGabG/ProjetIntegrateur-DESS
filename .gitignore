@@ -179,3 +179,43 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# TeX
+# Fichiers auxiliaires LaTeX
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.bcf
+*.blg
+*.run.xml
+
+# Index / glossaires
+*.idx
+*.ilg
+*.ind
+*.glg
+*.glo
+*.gls
+
+# Beamer
+*.nav
+*.snm
+
+# Latexmk / cache
+*.vrb
+
+# Éditeurs
+*.bak
+*.tmp
+*.swp
+*~
+
+# Dossiers de build (si jamais)
+build/
