@@ -1,0 +1,114 @@
+\documentclass[MSc,french]{ulthese}
+
+  \ifxetex\else \usepackage[utf8]{inputenc} \fi
+\usepackage{todonotes}
+\usepackage{amsmath,mathtools}
+\usepackage{amssymb,amsfonts} 
+\usepackage{bm}
+\usepackage{fontspec}
+\newcommand{\rcursif}{\text{\fontspec{Compagnon Bold}{r}}}
+\newcommand{\icursif}{\text{\fontspec{Compagnon Bold}{i}}}
+\newcommand{\acursif}{\text{\fontspec{Compagnon Bold}{a}}}
+\usepackage{array}
+\usepackage{esint}
+\usepackage{gensymb}
+\usepackage{physics}
+\usepackage{extarrows}
+\newcommand{\indep}{\perp\!\!\!\perp}
+\newcommand{\cov}{\mathrm{cov}}
+\newcommand{\dunderline}[1]{\underline{\underline{#1}}}  % Default double underline
+
+  \frenchbsetup{%
+    StandardItemizeEnv=true,       % format standard des listes
+    ThinSpaceInFrenchNumbers=true, % espace fine dans les nombres
+    og=«, fg=»                     % caractères « et » sont les guillemets
+  }
+\usepackage[sc]{caption}
+\captionsetup[table]{name=Tableau}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+ 
+\lstdefinestyle{mystyle}{
+morekeywords= {arctan2, sin, cos, sqrt, pi, random, uniform, fft, fft2, fftshift, ifft, ifft2, ifftshift, abs, exp, normal, stats, mean, std, j0, i0, arange, tensordot, asnumpy, float32, complex64, __name__, True, False},
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=mystyle}
+\renewcommand{\lstlistlistingname}{Extraits de code}
+\renewcommand*\lstlistingname{Code}
+
+
+\setcitestyle{numbers,square}
+ \bibliographystyle{plain-fr}
+
+
+  \titre{Analyse de tavelures laser par apprentissage profond\\Description et planification}
+
+  \auteur{Gabriel Genest}
+  \programme{DESS en Intelligence artificielle}
+  \direction{Luc Lamontagne}
+
+\begin{document}
+
+\frontmatter                    % pages liminaires
+
+\frontispice                    % production de la page frontispice
+\newpage
+\tableofcontents 
+\newpage
+\mainmatter 
+\chapter{Description du problème}
+Le projet présenté dans ce document est centré sur une problématique touchant l'imagerie et la microscopie. Ces domaines sont au centre de la médecine, de la biophotonique et de plusieurs procédés industriels. Alors que plusieurs cherchent à améliorer la résolution en dépassant le critère de Rayleigh, il existe une modalité d'imagerie simple et naturelle qui a gagné en popularité au cours des dernières années, malgré son émergence au cours des années 1980. Il s'agit de l'imagerie à l'aide des tavelures laser, ou encore \textit{laser speckle imaging} en anglais. Les tavelures laser apparaissent lorsqu'un faisceau de lumière cohérente frappe une surface ayant des aspérités microscopique de sorte que la lumière est diffusée dans des directions quelconques qu'on simplifie comme aléatoires. Cette diffusion cause différents délais pour les ondes réfléchies, créant des interférences destructives ou constructives lors de la détection de la lumière. La base mathématique des tavelures est bien connue du monde de l'optique statistique (voir l'annexe \ref{baseMath} pour plus d'informations), mais une utilisation efficace et rapide des tavelures pour l'imagerie reste une étape cruciale. Il est souvent intéressant d'avoir une analyse en temps réel des tavelures, permettant de suivre l'évolution de certains matériaux ou phénomènes biologiques. Il a donc été jugé pertinent d'utiliser la puissance des architectures d'apprentissage par réseaux profonds pour automatiser et potentiellement accélérer l'analyse de tavelures, que ce soit dans le domaine spatial ou temporel.
+\\ \\
+Dans un premier temps, Il existe des méthodes d'analyses statistiques classiques, mais selon la nature stochastique des tavelures, ces méthodes changent et induisent un biais. Ces analyses sont souvent assez lourdes mathématiquement et computationnellement, demandant par exemple plusieurs images dans un film ou encore des propriétés stochastiques bien spécifiques, comme l'ergodicité. Il est possible de modifier ces méthodes si certaines conditions ne sont pas respectées, mais savoir si elles le sont est souvent une autre tâche supplémentaire apportant son lot de défis. Utiliser une approche par apprentissage profond pourrait se spécialiser selon les besoins sans avoir à changer la structure. Si les tavelures sont stationnaire dans l'espace ou non, le réseau devrait être capable de distinguer sans l'intervention humaine lors de l'analyse.
+\\ \\
+Dans un second temps, plusieurs analyses sont spécifiques à une problématique bien particulière. Cela multiplie les modèles et algorithmes, menant à une recherche difficile pour trouver le bon moyen. Par exemple, si on  est intéressé à calculer la vitesse de déplacement des éléments diffuseurs, on doit avoir un modèle qui la calcule en fonction des données statistiques contenues dans les tavelures. Si on est plutôt intéressé à calculer la rigidité du matériau, on doit utiliser un modèle différent faisant le pont entre les statistiques des tavelures et le module de visco-élasticité, par exemple. Dans ces deux cas, les modèles risquent d'être assez différents ou encore ayant une constructions difficile à implémenter. Utiliser une approche par apprentissage profond pourrait, selon l'entraînement, construire son propre modèle interne et apprendre comment extraire ces informations sans interventions humaines lors de l'analyse.
+\\ \\
+Comme le phénomène des tavelures laser est autant spatial que temporel, un réseau alliant le contenu spatial et le contenu temporel est considéré. Le réseau aura comme entrée une séquence d'images de tavelures dans le temps et devra sortir l'information pertinente voulue. Dans le cadre de ce projet, cette information est le temps caractéristique de corrélation. La tête du réseau pourrait être modifiée selon l'information à extraire, par exemple la vitesse des diffuseurs. Une architecture mixte composée d'un réseau à convolution (CNN) et d'un réseau récurrent (RNN) sera utilisé, permettant un travail indépendant dans l'espace avec le CNN et l'information du CNN sera par la suite fournie au RNN pour l'aspect temporel. Ainsi, le réseau devrait être capable de cibler les informations pertinentes dans la corrélation spatiale et celle temporelle pour développer son modèle interne.
+\newpage
+\chapter{Revue de littérature}
+Plusieurs articles présentent des limitations de modèles qui seront à considérer durant le développement du projet:
+\begin{itemize}
+\item Briers et al. \cite{briers_laser_2013} expliquent quelques problèmes des modèles fixes de l'analyse des tavelures. Par exemple, certains modèles requiet la connaissance à priori de la distribution de la vitesse des diffuseurs, ce qui est en général pas possible, mais où on peut faire certaines hypothèses. La présence de diffuseurs statiques et dynamiques change aussi l'interprétabilité, car les statistiques changent spatialement, brisant la stationarité et l'ergodicité parfois requise.
+\item Liu et al. \cite{liu_choosing_2021} expliquent la multiplication des hypothèses et des modèles. Selon les hypothèses, les modèles changent et deviennent plutôt complexes. Dans cet article, on calcule le le \textit{blood flow index} (BFI), soit un indicateur de rapidité de déplacement du sang. Pour y arriver, il faut calculer le contraste et celui-ci est inversement proportionnel au BFI. Les modèles présentés comportent des paramètres expérimentaux importants, dont le paramètre $\beta$ qu'on rencontre souvent dans la littérature des tavelures et qui est difficile à estimer.
+\item Zheng et Mertz \cite{zheng_direct_2022, zheng_correcting_2022} expliquent, dans un premier temps, comment calculer directement le temps de corrélation d'une manière se rapprochant d'une approche sans modèle. On se base sur la théorie des tavelures pleinement développées et on intègre numériquement le contraste. Il y a toutefois les enjeux d'ergodicité: si les tavelures ne sont pas ergodiques, des corrections doivent être apportées, ajoutant une couche d'à priori. De plus, leur algorithme est relativement lourd, utilisant une approche pixel par pixel. Dans un second temps, ils présentent une manière de corriger le biais induit lors du calcul local du contraste spatial. On ajoute encore une couche de complexité et le besoin de savoir si les tavelures sont ergodiques.
+\end{itemize}
+Ces articles présentent des approches classiques, utilisant des méthodes statistiques.
+\newpage
+Au cours des dernières années, les chercheurs ont utilisé de plus en plus l'apprentissage machine pour analyser les tavelures:
+\begin{itemize}
+\item Fredriksson et al. \cite{fredriksson_machine_2019, hultman_speed-resolved_2023} expliquent l'utilisation d'un réseau de neurones artificiels dans le contexte de l'imagerie de tavelures à différents temps d'acquisition. Ils y utilisent un réseau de type perceptron, pleinement connecté avec une seule couche cachée. Le modèle est fourni d'informations extraites d'images de tavelures. Différents réseaux sont initialisés aléatoirement et le meilleur est conservé pour le test. L'utilisation d'une fonction d'activation $\tanh$ est expliquée par le fait que les réseaux l'ayant sont meilleurs que ceux ayant d'autres fonctions d'activation. Ils arrivent à la conclusion que l'apprentissage machine permet aux tavelures laser d'être utilisées et améliorer l'interprétation des images.
+\item Kaler et al. \cite{kaler_deep_2023} utilisent différentes approches d'apprentissage automatique pour la détection de graines infectées. Dans un premier temps, ils utilisent des approches plus classiques, comme des SVMs ou des KNNs, mais ensuite combinent des CNNs avec des LSTMs pour une analyse spatio-temporelle. Ils arrivent à la conclusion qu'un modèle à LSTM convolutionnel est meilleur que les autres en général. Cet article est particulièrement intéressant, car il compare plusieurs architecture et une méthode d'analyse robuste, soumettant les architectures à des données originales, sans bruit, puis ajoutant du bruit. De plus, parmis les autres articles, ils sont les seuls à considérer l'aspect spatial et temporel en même temps, profitant des CNNs et des RNNs. Par contre, il s'agit ici d'un problème de classification.
+\item Shang et al. \cite{shang_estimation_2025} utilisent un CNN tridimensionnel pour analyser le flot sanguin à partir d'images de tavelures laser. Ils arrivent à des précisions supérieurs à $90\%$, mais font appel à une approche de classification, discrétisant le flot sanguin en plusieurs intervalles. Cet approche peut être avantageuse dans la prédiction, mais on perd de l'information qui est parfois très importante. Il faut aussi bien découper l'espace des résultat pour ne pas avoir un biais trop élevé pour certains intervalles. L'approche de CNN 3D reste toutefois très intéressante.
+\end{itemize}
+\newpage
+\chapter{Choix du modèle}
+\newpage
+\chapter{Données du modèle}
+\newpage
+\chapter{Tâches à accomplir}
+\newpage
+\appendix                       % annexes le cas échéant
+\chapter{Base mathématique des tavelures}\label{baseMath}
+\newpage
+\bibliography{bibliography} 
+\end{document}
