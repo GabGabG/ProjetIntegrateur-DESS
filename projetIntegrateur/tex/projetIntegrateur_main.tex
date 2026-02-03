@@ -18,6 +18,19 @@
 \newcommand{\cov}{\mathrm{cov}}
 \newcommand{\dunderline}[1]{\underline{\underline{#1}}}  % Default double underline
 
+\usepackage{algorithm}
+\floatname{algorithm}{Algorithme}
+\usepackage{algpseudocode}
+\algrenewcommand\algorithmicrequire{\textbf{Entrées :}}
+\algrenewcommand\algorithmicensure{\textbf{Sorties :}}
+\algrenewcommand\algorithmicfor{\textbf{Pour}}
+\algrenewcommand\algorithmicwhile{\textbf{Tant que}}
+\algrenewcommand\algorithmicif{\textbf{Si}}
+\algrenewcommand\algorithmicelse{\textbf{Sinon}}
+\algrenewcommand\algorithmicreturn{\textbf{Retourner}}
+\algrenewcommand\algorithmicend{\textbf{Fin}}
+\algrenewcommand\algorithmicdo{\textbf{faire}}
+
   \frenchbsetup{%
     StandardItemizeEnv=true,       % format standard des listes
     ThinSpaceInFrenchNumbers=true, % espace fine dans les nombres
@@ -104,7 +117,104 @@ Au cours des dernières années, les chercheurs ont utilisé de plus en plus l'a
 \chapter{Choix du modèle}
 \newpage
 \chapter{Données du modèle}
+Les données d'entraînement du modèle seront générées numériquement selon un algorithme précis. De cette manière, on peut modifier les paramètres statistiques des tavelures comme on veut. De plus, une grande quantité de données peuvent être générées dans une fraction du temps que demande un montage expérimental. L'algorithme est basé principalement sur \cite{james_simulation_2021} où on présente une façon de simuler l'intégration temporelle des tavelures. Toutefois, cet algorithme ne simule pas de séries temporelles. Initialement, on génère les phaseurs selon l'Algorithme \ref{alg:specklesTempInt}.
+\begin{algorithm}
+    \caption{Simulation de tavelures pleinement développées intégrées temporellement}\label{alg:specklesTempInt}
+\begin{algorithmic}
+\Require $N\in\mathbb{N}^*$, $R\in\mathbb{R}^{*}_+$, $N_T\in\mathbb{N}^*$, $\Delta T \in \mathbb{R}^*_+$, $g:\mathbb{R}\to\mathbb{R}$
+\Ensure $I$ avec $I \in {\mathbb{R}}^{N\times N}_+$
+\State Générer $\Theta \in [-\pi,\pi]^{N \times N}$ avec $\Theta_{ik} \sim \mathcal{U}(-\pi,\pi)$ indépendants
+\State Définir $\Sigma \in \{0, 1\}^{N\times N}$ comme un disque centré de rayon $R$
+\State $T \gets [0, \Delta T, 2\Delta T, \dots, (N_T - 1)\Delta T]$
+\State $I \gets \textbf{0}_{N\times N}$
+\State $G\gets \textbf{0}_{N_T\times N_T}$
+\For{$i = 1$ \textbf{à} $N_T$}
+    \For{$k = 1$ \textbf{à} $N_T$}
+        \State $G_{ik} \gets g(|T_i - T_j|)$
+    \EndFor
+\EndFor
+\State $\lambda \gets \text{eigvals}(G)/N_T$ \Comment{$\text{eigvals}$ calcule les valeurs propres}
+\For{$n = 1$ \textbf{à} $N_T$}
+	\State $A \gets \exp{j\Theta}$ \Comment{Exponentielle terme à terme}
+	\State $A \gets \mathcal{F}_{2D}(A)\sqrt{\lambda_n}$\Comment{Transformée de Fourier 2D}
+	\State $A \gets \Sigma\odot A$
+	\State $A \gets \mathcal{F}_{2D}^{-1}(A)$\Comment{Transformée de Fourier inverse 2D}
+	\State $A_{\mathbb{R}} \gets \abs{A}$ \Comment{Module terme à terme}
+	\State $I \gets I + A_{\mathbb{R}}^2$ \Comment{Carré terme à terme}
+\EndFor
+\end{algorithmic}
+\end{algorithm}
 \newpage
+Pour une série temporelle, sans intégration temporelle, on doit modifier la création des amplitudes complexes pour ajouter une dimension temporelle ayant une certaine corrélation, comme montré à l'Algorithme \ref{alg:specklesBaseTS}.
+\begin{algorithm}
+    \caption{Simulation temporelle de tavelures pleinement développées}\label{alg:specklesBaseTS}
+\begin{algorithmic}
+\Require $N\in\mathbb{N}^*$, $R\in\mathbb{R}_{+}^*$, $P\in\mathbb{N}^*$, $C\in\mathbb{R}^{P\times P}$
+\Ensure $(A_\mathbb{R}, I)$ avec $A_\mathbb{R} \in \mathbb{R}^{P\times N\times N}$ et $I \in \mathbb{R}_+^{P \times N\times N}$
+\State Générer $\mathcal{R} \in \mathbb{R}^{P \times N \times N}$ avec $\mathcal{R}_{pik} \sim \mathcal{N}\left(0, \frac{1}{2}\right)$ et $\rho\left(\mathcal{R}_{pik}, \mathcal{R}_{p'i'k'}\right) = \begin{cases}
+    C_{pp'} & \text{si }(i, k) = (i', k')\\
+    0 & \text{sinon}
+\end{cases}$
+\State Générer $\mathcal{I} \in \mathbb{R}^{P\times N\times N}$ avec $\mathcal{I}_{pik} \sim \mathcal{N}\left(0, \frac{1}{2}\right)$ et $\rho\left(\mathcal{I}_{pik}, \mathcal{I}_{p'i'k'}\right) = \begin{cases}
+    C_{pp'} & \text{si }(i, k) = (i', k')\\
+    0 & \text{sinon}
+\end{cases}$
+\State Définir $\Sigma \in \{0, 1\}^{N\times N}$ comme un disque centré de rayon $R$
+\State $A\gets \textbf{0}_{P\times N \times N}$
+\For{$p = 1$ \textbf{à} $P$}
+    \State $A_p \gets \mathcal{R}_p + j\mathcal{I}_p$
+    \State $A_p \gets \mathcal{F}_{2D}(A_p)$
+    \State $A_p \gets \Sigma \odot A_p$
+    \State $A_p \gets \mathcal{F}_{2D}^{-1}(A_p)$
+\EndFor
+\State $A_{\mathbb{R}} \gets \abs{A}$
+\State $I \gets A_{\mathbb{R}}^2$
+\end{algorithmic}
+\end{algorithm}
+\\
+La corrélation provenant de la matrice de corrélation $C$ est conservée dans le champ réel $A_\mathbb{R}$ et la corrélation de l'intensité $I$ en est simplement le carré. Il est possible de mettre en commun l'Algorithme \ref{alg:specklesTempInt} et l'Algorithme \ref{alg:specklesBaseTS}: on génère les amplitudes selon l'Algorithme \ref{alg:specklesBaseTS}, permettant ainsi une corrélation temporelle spécifique, puis ensuite on se base sur l'Algorithme \ref{alg:specklesTempInt}. On obtient l'Algorithme \ref{alg:specklesTS_TempInt}. Un avantage de cet algorithme est qu'il génère des séries temporelles stationnaires grâce à la création des séries temporelles multinormales, contrairement à d'autres algorithmes trouvés dans la littérature. On peut alors décider de la corrélation temporelle, tant qu'elle donne une matrice de corrélation valide, c'est-à-dire positive (semi) définie. On peut aussi moduler le temps d'intégration simulée, donnant des images plus ou moins floues. Un désavantage de cette approche est sa complexité en mémoire. En effet, on doit générer $N_T \times P \times N \times N$ amplitudes complexes, même si au final on perd la première dimension à l'aide d'une réduction. L'interdépendance des $P$ champs $N\times N$ fait aussi en sorte qu'on ne peut pas les générer \textit{on the go}, on doit les créer toutes en même temps pour que la dépendance temporelle soit cohérente. Il est toutefois possible de vectoriser l'algorithme pour tirer avantage des architectures GPU. La première étape de vectorisation se trouve dans la boucle interne finale sur $P$, ainsi les opérations internes peuvent se faire en bloc. Une deuxième étape est d'aussi vectoriser la boucle externe finale sur $N_T$, mais on multiplie la mémoire requise en une passe. Soit on a beaucoup de VRAM à consacrer, soit on doit avoir de petites simulations. En se limitant par contre à la boucle interne, des GPUs de moyenne gamme peuvent très bien gérer des simulations intéressantes. On peut aussi s'assurer de libérer l'espace dès que possible ou encore de restreindre la précision des flottants, par exemple à $32$ bits. De cette manuère, les amplitudes complexes sont sur $64$ bits, ce qui est suffisant en général.
+\begin{algorithm}
+    \caption{Simulation temporelle de tavelures pleinement développées intégrées temporellement}\label{alg:specklesTS_TempInt}
+\begin{algorithmic}
+\Require $N\in\mathbb{N}^*$, $R\in\mathbb{R}_{+}^*$, $N_T\in\mathbb{N}^*$, $\Delta T\in\mathbb{R}^*_+$, $g: \mathbb{R}\to\mathbb{R}$, $P\in\mathbb{N}^*$
+\Ensure $I$ avec $I \in \mathbb{R}_+^{P \times N\times N}$
+\State Définir $\Sigma\in\{0,1\}^{N\times N}$ comme un disque centré de rayon $R$
+\State $T \gets [0, \Delta T, 2\Delta T, \dots, (N_T - 1)\Delta T]$
+\State $I\gets \textbf{0}_{P\times N \times N}$
+\State $G\gets \textbf{0}_{N_T \times N_T}$
+\State $c \gets \textbf{0}_{P}$
+\For{$p = 0$ \textbf{à} $P-1$}
+	\State $c_p\gets g(p\cdot (N_T-1)\Delta T)$
+\EndFor
+\State $C \gets \text{Toeplitz}(c)$ \Comment{Construit une matrice Toeplitz avec première ligne $c$}
+\For{$i = 1$ \textbf{à} $N_T$}
+	\For{$k = 1$ \textbf{à} $N_T$}
+		\State $G_{ik} \gets g(\abs{T_i - T_j})$
+	\EndFor
+\EndFor
+\State $\lambda \gets \text{eigvals}(G) / N_T$
+\For{$n = 1$ \textbf{à} $N_T$}
+	\State Générer $\mathcal{R} \in \mathbb{R}^{P \times N \times N}$, $\mathcal{R}_{pik} \sim \mathcal{N}\left(0, \frac{1}{2}\right)$ et $\rho\left(\mathcal{R}_{pik}, \mathcal{R}_{p'i'k'}\right) = \begin{cases}
+    C_{pp'} & \text{si }(i, k) = (i', k')\\
+    0 & \text{sinon}
+\end{cases}$
+\State Générer $\mathcal{I} \in \mathbb{R}^{P\times N\times N}$, $\mathcal{I}_{pik} \sim \mathcal{N}\left(0, \frac{1}{2}\right)$ et $\rho\left(\mathcal{I}_{pik}, \mathcal{I}_{p'i'k'}\right) = \begin{cases}
+    C_{pp'} & \text{si }(i, k) = (i', k')\\
+    0 & \text{sinon}
+\end{cases}$
+	\For{$p = 1$ \textbf{à} $P$}
+		\State $A_p \gets \mathcal{R}_p + j\mathcal{I}_p$
+		\State $A_p \gets \mathcal{F}_{2D}(A_p)\sqrt{\lambda_n}$
+		\State $A_p\gets \Sigma \odot A_p$
+		\State $A_p \gets \mathcal{F}^{-1}_{2D}(A_p)$
+		\State $A_\mathbb{R} \gets \abs{A_p}$
+		\State $I_p \gets I_p + A_\mathbb{R}^2$
+	\EndFor
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+\newpage
+La génération des données se fera à l'aide du langage de programmation \textit{Python}, en utilisant les puissantes librairies \textit{NumPy} et \textit{SciPy} principalement. De plus, pour l'accélération GPU, la librairie \textit{CuPy} sera aussi importante, étant essentiellement un portage de \textit{NumPy} (et d'un peu de \textit{SciPy}) sur les cartes graphiques compatibles CUDA\footnote{Aussi disponible pour les architectures ROCm, mais à l'état expérimental.}. Pour plus d'information sur le module, visiter le site web \url{https://cupy.dev/}.
 \chapter{Tâches à accomplir}
 \newpage
 \appendix                       % annexes le cas échéant
