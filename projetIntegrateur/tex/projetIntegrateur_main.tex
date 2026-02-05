@@ -37,6 +37,7 @@
     og=«, fg=»                     % caractères « et » sont les guillemets
   }
 \usepackage[sc]{caption}
+\usepackage{subcaption}
 \captionsetup[table]{name=Tableau}
 \usepackage{listings}
 \usepackage{xcolor}
@@ -241,8 +242,52 @@ La corrélation provenant de la matrice de corrélation $C$ est conservée dans 
 \newpage
 La génération des données se fera à l'aide du langage de programmation \textit{Python}, en utilisant les puissantes librairies \textit{NumPy} et \textit{SciPy} principalement. De plus, pour l'accélération GPU, la librairie \textit{CuPy} sera aussi importante, étant essentiellement un portage de \textit{NumPy} (et d'un peu de \textit{SciPy}) sur les cartes graphiques compatibles CUDA\footnote{Aussi disponible pour les architectures ROCm, mais à l'état expérimental.}. Pour plus d'information sur le module, visiter le site web \url{https://cupy.dev/}.
 \\ \\
-Si le temps le permet, il serait aussi intéressant de tester différentes variantes, notamment l'ajout de bruit, la non uniformité de la tache laser et la variation spatiale du temps caractéristique de corrélation. Les deux premiers cas sont relativement triviaux, alors que le dernier requiert une refonte de l'algorithme à l'étape de création des amplitudes complexes et lors de la pondération par les valeurs propres. Pour l'instant, seules les tache uniforme sans bruit et de temps de corrélation stationnaire dans l'espace sont considérés. La figure \ref{} montre trois simulations d'une même séquence où le temps d'intégration est de $0.3$ seconde et le temps caractéristique est de $1$ seconde. La corrélation de la séquence au complet est présentée à la figure \ref{}. À la figure \ref{}, on montre trois simulations aussi d'une même séquence, mais cette fois le temps d'intégration est de $1$ seconde pour un temps caractéristique de $0.3$ seconde. La corrélation de la séquence au complet est présentée à la figure \ref{}. À noter la différence de la courbe. Dans le premier cas, la corrélation est exponentielle, alors que dans le second cas elle est gaussienne. Ce genre d'images seront générées pour différents paramètres et serviront à l'entraînement, la validation et le test.
+Si le temps le permet, il serait aussi intéressant de tester différentes variantes, notamment l'ajout de bruit, la non uniformité de la tache laser et la variation spatiale du temps caractéristique de corrélation. Les deux premiers cas sont relativement triviaux, alors que le dernier requiert une refonte de l'algorithme à l'étape de création des amplitudes complexes et lors de la pondération par les valeurs propres. Pour l'instant, seules les tache uniforme sans bruit et de temps de corrélation stationnaire dans l'espace sont considérés. La figure \ref{fig:expSimEx} montre trois simulations d'une même séquence où le temps d'intégration est de $0.03$ seconde et le temps caractéristique est de $1$ seconde. La corrélation de la séquence au complet est présentée à la figure \ref{fig:corrExp}. À la figure \ref{fig:gaussSimEx}, on montre trois simulations aussi d'une même séquence, avec les même paramèrtres, sauf la corrélation qui est maintenant gaussienne au lieu d'exponentielle. La corrélation de la séquence au complet est présentée à la figure \ref{fig:corrGauss}. Ce genre d'images seront générées pour différents paramètres et serviront à l'entraînement, la validation et le test.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=1\linewidth]{images/images_exp.pdf}
+    \caption{Exemple d'une modalité de simulation de tavelures. Ici, la corrélation temporelle est exponentielle.}
+    \label{fig:expSimEx}
+\end{figure}
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=1\linewidth]{images/images_gauss.pdf}
+    \caption{Exemple d'une modalité de simulation de tavelures. Ici, la corrélation temporelle est gaussienne.}
+    \label{fig:gaussSimEx}
+\end{figure}
+\begin{figure}
+     \centering
+     \begin{subfigure}[b]{0.49\textwidth}
+         \centering
+         \includegraphics[width=\textwidth]{images/corr_exp.pdf}
+         \caption{Corrélation temporelle théorique et estimée d'une séquence temporelle de $150$ simulations de tavelures pour une corrélation exponentielle.}
+         \label{fig:corrExp}
+     \end{subfigure}
+     \hfill
+     \begin{subfigure}[b]{0.49\textwidth}
+         \centering
+         \includegraphics[width=\textwidth]{images/corr_gauss.pdf}
+         \caption{Corrélation temporelle théorique et estimée d'une séquence temporelle de $150$ simulations de tavelures pour une corrélation gaussienne.}
+         \label{fig:corrGauss}
+     \end{subfigure}
+\end{figure}
+\newpage
+\chapter{Évaluation du modèle}
+
+\newpage
 \chapter{Tâches à accomplir}
+\section{Génération des données}
+La première tâche à accomplir consiste à générer plusieurs jeux de données ayant des paramètres de simulation différents, mais aussi identiques. Étant donné la nature statistique et probabiliste des simulations, différentes réalisations ayant les même paramèrtres donnent des séquences différentes. Ainsi, en donnant plusieurs séquences de paramètres identiques, le réseau n'apprend pas que pour une seul séquence, mais apprend une généralisation.
+\\ \\
+Le code pour générer les données selon l'Algorithme \ref{alg:specklesTS_TempInt} existe déjà, bien que sous une forme qui pourrait être plus élégante, comme utiliser le paradigme orienté objet. Quelques heures seraient mises pour finaliser et tester un code complet. Le code devrait permettre d'itérer sur plusieurs paramèrtres, faire quelques simulations par combinaison et enregistrer les données sur disque. L'approche de génération par GPU sera préconisée, car elle accélère grandement l'exécution du code.
+\section{Développement du pipeline d'entraînement: DataLoader et Dataset}
+Pour bien tirer profit de \textit{PyTorch}, il sera important d'implémenter des classes permettant de charger les données de manière aléatoire parmis les combinaisons de paramètres et de former des lots pour l'entraînement. La documentation web explique bien comment procéder, donc quelques heures seront requises pour s'assurer d'avoir un pipeline d'accès aux données qui est efficace et pratique. Il sera important de ne pas charger toutes les données d'entraînement en même temps, cela risque de surcharger la RAM. Seulement celles requises pour le lot courant seront chargées, avec peut-être quelques lots en buffer. Implémenter une approche parallèle pourrait être pertinente, soit charger les données en même temps qu'un lot est utilisé. À voir à quel point cela est faisable et raisonnable.
+\section{Développement du pipeline d'entraînement: Modèle}
+Le premier modèle présenté plus tôt dans ce document sera implémenté à l'aide de \textit{PyTorch}. L'implémentation initiale ne devrait pas être trop longue. Ce qui risque de demander plus de temps est l'optimisation des hyperparamètres. Toutefois, lorsque l'architecture de base sera présente, modifier les hyperparamètre revient majoritairement à remplacer quelques bouts de code. Selon le temps requis pour l'entraînement d'un modèle, des comparaisons pourraient être effectuées durant la nuit. En plus d'un ordinateur portable, un ordinateur de bureau est disponible. Lors des heures de cours, celui-ci n'est pas utilisé et pourra servir de machine principale pour l'entraînement. Si possible, contrôler cette machine à distance sera considéré. L'évaluation étant automatique, plusieurs entraînements peuvent être itérés sans interaction humaine.
+\section{Décision du modèle}
+Après optimisation des hyperparamètres, il sera décidé de quelle configuration choisir. Si les résultats ne sont pas intéressant et que plusieurs combinaisons d'hyperparamètres ont été explorées, le deuxième modèle sera considéré. Le principal problème avec le second modèle est qu'il n'est pas faisable facilement avec \textit{PyTorch}, on doit construire la mécanique interne. La présence d'un répertoire GitHub est intéressante, mais la qualité de l'implémentation peut être problématique.
+\section{Exploration complémentaire (si le temps le permet)}
+Dans le cas où le projet avance très bien et qu'il reste suffisamment de temps, le modèle pourrait être modifié pour changer la sortie du réseau. Pour l'instant, une sortie scalaire est considérée, mais une carte locale de temps de corrélation serait plus précise pour des processus dynamiques qui ne sont pas stationnaire dans l'espace, comme différents tissus biologiques ayant différentes rigidités.
 \newpage
 \appendix                       % annexes le cas échéant
 \chapter{Base mathématique des tavelures}\label{baseMath}
