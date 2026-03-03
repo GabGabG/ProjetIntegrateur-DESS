@@ -1,17 +1,22 @@
 # TODO: peut-être déplacer dans un endroit plus "propice"
 
 import torch
-from torch.utils.data import DataLoader
+from torch import nn
+from torch.utils.data import DataLoader, Subset
+import numpy as np
 from typing import Union
 import os
+import tempfile
 from tqdm import tqdm
 from base_model import SpeckleNN
+from dataset import MetadataSplitter, SpeckleDataset
 
 
 class SpeckleCallback:
 
     def __init__(self, name: str, checkpoints_root: str = "", checkpoint_basename: str = None,
                  max_checkpoints: int = -1, keep_when_multiple: int = 50):
+        # TODO: pour simplifier, mettre max_checkpoints à np.inf?
         self.__name = name
         self.__checkpoints_root = checkpoints_root
         self.__checkpoint_basename = checkpoint_basename if checkpoint_basename is not None else self.__name
@@ -50,9 +55,9 @@ class SpeckleCallback:
         :return: Nothing.
         """
         listdir = os.listdir(self.__checkpoints_root)
-        if len(listdir) >= self.__max_checkpoints:
-            all_files = [os.path.join(self.__checkpoints_root, f) for f in listdir if
-                         f.endswith(".pt")]
+        all_files = [os.path.join(self.__checkpoints_root, f) for f in listdir if
+                     f.endswith(".pt") and f.startswith(self.__checkpoint_basename)]
+        if all_files and len(all_files) >= self.__max_checkpoints:
             oldest = min(all_files, key=os.path.getmtime)
             os.remove(oldest)
 
@@ -80,11 +85,13 @@ class SpeckleCallback:
             else:
                 self.__clear_oldest_file()
                 self.__checkpoint_model(model, optimizer, scheduler, epoch, mean_train_losses, mean_val_losses)
+            msg = f"Epoch: {epoch}\n{mean_train_losses[-1]}\n{mean_val_losses[-1]}"
+            print(msg)
 
 
 class SpeckleTrainingLoop:
 
-    def __init__(self, model: SpeckleNN, optimizer: torch.optim.Optimizer, loss_function: torch._Loss,
+    def __init__(self, model: SpeckleNN, optimizer: torch.optim.Optimizer, loss_function: callable,
                  dataloader_train: DataLoader, dataloader_valid: DataLoader = None):
         """
         Initializes the training loop.
@@ -175,7 +182,7 @@ class SpeckleTrainingLoop:
         Default is None, no scheduler.
         :param callback: callable. Function called every epoch, optional. If provided, must take six positional
         arguments: model, optimizer, scheduler, epoch number, mean training loss and mean validation loss for the
-        current epoch. Must consider the case where no scheduler is provided.
+        current epoch. Must consider the case where no scheduler is provided. No callback by default.
         :return: a tuple of lists. The first list contains the training losses and the second list contains the
         validation losses.
         """
@@ -224,3 +231,113 @@ class SpeckleTrainingLoop:
         log_predictions_all = torch.cat(log_predictions_all).cpu()
         targets = torch.cat(targets).cpu()
         return losses, log_predictions_all, targets
+
+
+class Overfit:
+
+    def __init__(self, model: SpeckleNN, optimizer: torch.optim.Optimizer, loss_function: callable,
+                 data_simulator: callable, *data_sim_args, **data_sim_kwargs):
+        """
+        Class used to test overfitting of SpeckleNN on few.
+        :param model: SpeckleNN. The model to test.
+        :param optimizer: Optimizer from PyTorch. Optimizer used to update the model parameters.
+        :param loss_function: Loss function from PyTorch. Loss function used to compute the loss between the predicted
+        values and the target values.
+        :param data_simulator: callable. Function used to simulate data. Must accept at least one keyword argument, the
+        root where to save data.
+        :param data_sim_args: Arguments to pass to the data simulator function. Optional.
+        :param data_sim_kwargs: Keyword arguments to pass to the data simulator. Optional.
+        """
+        self.__model = model
+        self.__optimizer = optimizer
+        self.__loss_function = loss_function
+        self.__data_simulator = data_simulator
+        self.__data_sim_args = data_sim_args
+        self.__data_sim_kwargs = data_sim_kwargs
+
+    def __call__(self, num_epochs: int, scheduler: torch.optim.lr_scheduler.LRScheduler = None,
+                 callback: SpeckleCallback = None, dataset_args: tuple = (), dataset_kwargs: dict = None,
+                 dataloader_args: tuple = (), dataloader_kwargs: dict = None):
+        """
+        Method to run the overfitting training procedure.
+        :param num_epochs: int. Number of epochs to train.
+        :param scheduler: LRScheduler from PyTorch. Scheduler used to update the learning rate.
+        Default is None, no scheduler.
+        :param callback: callable. Function called every epoch, optional. If provided, must take six positional
+        arguments: model, optimizer, scheduler, epoch number, mean training loss and mean validation loss for the
+        current epoch. Must consider the case where no scheduler is provided. No callback by default.
+        :param dataset_args: tuple. Arguments to pass to the SpeckleDataset class. Optional.
+        :param dataset_kwargs: dict. Keyword arguments to pass to the SpeckleDataset class. Optional.
+        :param dataloader_args: tuple. Arguments to pass to the DataLoader class. Optional.
+        :param dataloader_kwargs: dict. Keyword arguments to pass to the DataLoader class. Optional.
+        :return: a list of train losses for all epochs.
+        """
+        if dataloader_kwargs is None:
+            dataloader_kwargs = {}
+        if dataset_kwargs is None:
+            dataset_kwargs = {}
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            metadata = self.__data_simulator(root=temp_dir, *self.__data_sim_args, **self.__data_sim_kwargs)
+            dataset = SpeckleDataset(temp_dir, metadata, *dataset_args, **dataset_kwargs)
+            dataloader = DataLoader(dataset, *dataloader_args, **dataloader_kwargs)
+            train = SpeckleTrainingLoop(self.__model, self.__optimizer, self.__loss_function, dataloader)
+            losses, _ = train.train(num_epochs, scheduler=scheduler, callback=callback)
+        return losses
+
+
+if __name__ == '__main__':
+    from ..simulations.time_integrated_sims import MultipleTimeIntegratedTimeSeriesGenerator
+    from ..simulations.correlation_functions import expon
+
+    batch_size = 8
+    lr = 1e-3
+    n_epochs = 300
+    data_root = r"C:\Users\goubi\OtherGit\code_article_gabriel\source\speckles\data"
+    model_saves = r"C:\Users\goubi\OtherGit\code_article_gabriel\source\speckles\callbacks"
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    n_data = 16
+    n_repeats = 2
+
+    # Régime tau_c < T
+    T = np.array([1])
+    tau_cs = np.linspace(1e-2, 0.5, n_data // n_repeats)
+
+    model = SpeckleNN(cnn_out_channels=(16, 32, 64)).to(device)
+    gen = MultipleTimeIntegratedTimeSeriesGenerator(tau_cs, T, [expon], n_repeats)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    loss = nn.L1Loss()
+    o = Overfit(model, optimizer, loss, gen.generate, sim_width=128, speckle_size=3, time_series_length=50,
+                correlation_function_sampling=100)
+    lr_str = str(lr).replace(".", "p")
+    callback = SpeckleCallback(f"data_len_{n_data}_L1_lr_{lr_str}", model_saves, max_checkpoints=5,
+                               keep_when_multiple=10)
+    losses = o(n_epochs, None, callback,
+               dataloader_kwargs={"batch_size": batch_size, "shuffle": False, "num_workers": 4, "pin_memory": True})
+
+    # load = torch.load(r"C:\Users\goubi\OtherGit\code_article_gabriel\source\speckles\callbacks\range_10_L1_epoch_4.pt")
+    # print(load.keys())
+    # print(load["epoch"])
+    # print(load["mean_train_loss"])
+    # print(load["mean_val_loss"])
+    # print(load["scheduler_state_dict"])
+    #
+    # exit()
+    metadata_name = "metadata.csv"
+    metadata_path = os.path.join(data_root, metadata_name)
+
+    metadata_splitter = MetadataSplitter.from_csv(metadata_path)
+    train, val = metadata_splitter(0.8)
+
+    train_dataset = SpeckleDataset(data_root, train.metadata)
+    val_dataset = SpeckleDataset(data_root, val.metadata)
+    range_ = 64
+    mini_train = Subset(train_dataset, range(range_))
+    mini_train_loader = DataLoader(mini_train, batch_size=batch_size, shuffle=False, pin_memory=True, num_workers=4)
+
+    lr_str = str(lr).replace(".", "p")
+    callback = SpeckleCallback(f"range_{range_}_L1_lr_{lr_str}", model_saves, max_checkpoints=5,
+                               keep_when_multiple=10)
+
+    trainer = SpeckleTrainingLoop(model, optimizer, loss, mini_train_loader)
+    trainer.train(num_epochs=n_epochs, callback=callback)
