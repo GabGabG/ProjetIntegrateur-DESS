@@ -276,9 +276,9 @@ Si le temps le permet, il serait aussi intéressant de tester différentes varia
 \end{figure}
 \newpage
 \chapter{Évaluation du modèle}
-Pour évaluer le modèle, quelques points sont à étudier. Premièrement, on va évaluer les performances pour des images dites \textit{idéales}, donc une tache laser infinie. Comme le réseau donne le temps caractéristique de corrélation, une métrique de log erreur relative sera utilisé, soit:
+Pour évaluer le modèle, quelques points sont à étudier. Premièrement, on va évaluer les performances pour des images dites \textit{idéales}, donc une tache laser infinie. Comme le réseau donne le temps caractéristique de corrélation, une métrique de log erreur absolue sera utilisé, soit:
 \begin{align*}
-LER = \abs{\log{\hat{\tau}_c} - \log{\tau_c}}.
+LEA = \abs{\log{\hat{\tau}_c} - \log{\tau_c}}.
 \end{align*}
 Pour une même combinaison de paramètres de simulations, mais pour différentes réalisations, on va aussi effectuer un test $t$ de Student (ou une variante selon la distribution des écarts) pour vérifier si le biais du modèle est statistiquement nul, à un seuil de $5\%$. Une troisième métrique est le score $R^2$ entre les estimations et les vraies valeurs pour différents temps caractéristiques. Essentiellement, étape par étape, on a:
 \begin{enumerate}
@@ -286,8 +286,8 @@ Pour une même combinaison de paramètres de simulations, mais pour différentes
 \item Évaluation du modèle:
 \begin{enumerate}
 \item Itérer sur un ensemble de validation avec des paramètres identiques et différents,
-\item Calculer la $LER$ pour tous les éléments,
-\item Calculer le score $R^2$ sur $LER$ pour tous les éléments;
+\item Calculer la $LEA$ pour tous les éléments,
+\item Calculer le score $R^2$ sur $LEA$ pour tous les éléments;
 \item Faire des tests $t$ pour tous les éléments ayant les mêmes propriétés.
 \end{enumerate}
 \end{enumerate}
@@ -306,6 +306,37 @@ Le premier modèle présenté plus tôt dans ce document sera implémenté à l'
 Après optimisation des hyperparamètres, il sera décidé de quelle configuration choisir. Si les résultats ne sont pas intéressant et que plusieurs combinaisons d'hyperparamètres ont été explorées, le deuxième modèle sera considéré. Le principal problème avec le second modèle est qu'il n'est pas faisable facilement avec \textit{PyTorch}, on doit construire la mécanique interne. La présence d'un répertoire GitHub est intéressante, mais la qualité de l'implémentation peut être problématique.
 \section{Exploration complémentaire (si le temps le permet)}
 Dans le cas où le projet avance très bien et qu'il reste suffisamment de temps, le modèle pourrait être modifié pour changer la sortie du réseau. Pour l'instant, une sortie scalaire est considérée, mais une carte locale de temps de corrélation serait plus précise pour des processus dynamiques qui ne sont pas stationnaire dans l'espace, comme différents tissus biologiques ayant différentes rigidités.
+\newpage
+\chapter{Expérimentations}
+L'expérimentation s'est principalement faite en deux étapes. Dans un premier temps, plusieurs séquences de paramètres statistiques et physiques différents sont fournies au modèle. Or, ce ne s'est pas avéré efficace pour tester la capacité d'apprentissage du modèle: les performances étaient très mauvaises et le réseau ne convergeait pas vers une solution à faible perte. On peut expliquer les problèmes par la haute dimensionnalité de l'espace des paramètres physiques et statistiques. En effet, on fait varier le temps caractéristique $\tau_c$ sur une plage dynamique importante, de même que pour le temps d'intégration $T$. On a alors un sous ensemble non négligeable de $\mathbb{R}^2$ où le réseau doit apprendre l'interdépendance des images et des paramètres. De plus, on fait aussi varier la fonction de corrélation temporelle entre une exponentielle et une gaussienne. Le problème devient rapidement lourd, surtout en mémoire. On ne peut pas efficacement apprendre seulement sur de petits sous-ensembles de l'espace des paramètres.\\ \\
+Pour la deuxième étape, il a été nécessaire de retourner à la base. Il est important en apprentissage automatique de déterminer si réellement un réseau peut apprendre. On doit donc s'assurer que le réseau puisse sur-apprendre un petit jeu de données. Pour y arriver, le modèle initial est modifié pour considérer le temps d'intégration comme une caractéristique fournie au réseau récurrent. De plus, une restriction sur le domaine des paramètres de simulation est requise. On fait seulement varier le temps caractéristique pour un temps d'intégration spécifique, ici fixé à $1$ (les unités sont arbitraires). Le temps caractéristique est divisé en trois modalités: plus petit que $T$, même ordre que $T$ et plus grand que $T$. On divise aussi l'entraînement selon la fonction de corrélation. Ces deux séparations permettent de déterminer si une modalité de temps caractéristique ou une fonction de corrélation cause un entraînement problématique. Voici la démarche de sur-apprentissage d'un petit jeu de données:
+\begin{itemize}
+\item Pour $\tau_c < T$:
+	\begin{enumerate}
+	\item Générer $8$ $\tau_c$ dans un espace linéaire de $10^{-2}$ à $0.5$;
+	\item Simuler avec répétition de $2$ pour chaque $\tau_c$ avec corrélation exponentielle;
+	\item Entraîner sur $300$ époques;
+	\item Simuler avec répétition de $2$ pour chaque $\tau_c$ avec corrélation gaussienne;
+	\item Entraîner sur $300$ époques;
+	\end{enumerate}
+\item Pour $\tau_c\approx T$:
+	\begin{enumerate}
+	\item Générer $8$ $\tau_c$ dans un espace linéaire de $0.8$ à $1.2$;
+	\item Simuler avec répétition de $2$ pour chaque $\tau_c$ avec corrélation exponentielle;
+	\item Entraîner sur $300$ époques;
+	\item Simuler avec répétition de $2$ pour chaque $\tau_c$ avec corrélation gaussienne;
+	\item Entraîner sur $300$ époques;
+	\end{enumerate}
+\item Pour $\tau_c > T$:
+	\begin{enumerate}
+	\item Générer $8$ $\tau_c$ dans un espace linéaire de $1.5$ à $20$;
+	\item Simuler avec répétition de $2$ pour chaque $\tau_c$ avec corrélation exponentielle;
+	\item Entraîner sur $300$ époques;
+	\item Simuler avec répétition de $2$ pour chaque $\tau_c$ avec corrélation gaussienne;
+	\item Entraîner sur $300$ époques;
+	\end{enumerate}
+\end{itemize}
+Il est aussi important d'avoir une optimisation adéquate lors de l'entraînement. Le test de sur-apprentissage s'est effectué à l'aide de l'optimiseur Adam\todo{Citer} avec deux taux d'apprentissage. On a utilisé un taux de $10^{-3}$, puis un taux de $10^{-4}$. La perte est la perte $L1$, mais appliquée sur le logarithme de la sortie et de la cible, donc la log erreur absolue. Comme les temps caractéristique sont généralement petits, utiliser le logarithme permet d'avoir une échelle intéressante limitant la perte du gradient.
 %\newpage
 %\appendix                       % annexes le cas échéant
 %\chapter{Base mathématique des tavelures}\label{baseMath}
