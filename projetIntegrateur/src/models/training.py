@@ -8,8 +8,8 @@ from typing import Union
 import os
 import tempfile
 from tqdm import tqdm
-from base_model import SpeckleNN
-from dataset import MetadataSplitter, SpeckleDataset
+from .base_model import SpeckleNN
+from .dataset import MetadataSplitter, SpeckleDataset
 
 
 class SpeckleCallback:
@@ -288,32 +288,82 @@ class Overfit:
 
 if __name__ == '__main__':
     from ..simulations.time_integrated_sims import MultipleTimeIntegratedTimeSeriesGenerator
-    from ..simulations.correlation_functions import expon
+    from ..simulations.correlation_functions import expon, gaussian
 
     batch_size = 8
     lr = 1e-3
     n_epochs = 300
     data_root = r"C:\Users\goubi\OtherGit\code_article_gabriel\source\speckles\data"
-    model_saves = r"C:\Users\goubi\OtherGit\code_article_gabriel\source\speckles\callbacks"
+    model_saves = r"C:\Users\goubi\OtherGit\code_article_gabriel\source\speckles\overfits"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_data = 16
     n_repeats = 2
+    # Régime tau_c < T: tau_c varie 1e-2 à 0.5 (linspace 8 points), T = 1
+    # Régime tau_c approx T: tau_c varie 0.8 à 1.2 (linspace 8 points), T = 1
+    # Régime tau_c > T: tau_c varie 1.5 à 20 (linspace 8 points), T = 1
 
-    # Régime tau_c < T
+    # TODO: essayer avec gauss corrfunc, même tau_cs et T
     T = np.array([1])
-    tau_cs = np.linspace(1e-2, 0.5, n_data // n_repeats)
+    tau_cs_plus_petit = np.linspace(1e-2, 0.5, n_data // n_repeats)
+    tau_cs_approx = np.linspace(0.8, 1.2, n_data // n_repeats)
+    tau_cs_plus_grand = np.linspace(1.5, 20, n_data // n_repeats)
+    corrfuncs = [expon, gaussian]
+    n_trials = 10
 
-    model = SpeckleNN(cnn_out_channels=(16, 32, 64)).to(device)
-    gen = MultipleTimeIntegratedTimeSeriesGenerator(tau_cs, T, [expon], n_repeats)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    loss = nn.L1Loss()
-    o = Overfit(model, optimizer, loss, gen.generate, sim_width=128, speckle_size=3, time_series_length=50,
-                correlation_function_sampling=100)
-    lr_str = str(lr).replace(".", "p")
-    callback = SpeckleCallback(f"data_len_{n_data}_L1_lr_{lr_str}", model_saves, max_checkpoints=5,
-                               keep_when_multiple=10)
-    losses = o(n_epochs, None, callback,
-               dataloader_kwargs={"batch_size": batch_size, "shuffle": False, "num_workers": 4, "pin_memory": True})
+    # tau_c < T
+    # for i in range(n_trials):
+    #     for lr in [1e-4, 1e-3]:
+    #         for corrfunc in corrfuncs:
+    #             model = SpeckleNN(cnn_out_channels=(16, 32, 64)).to(device)
+    #             gen = MultipleTimeIntegratedTimeSeriesGenerator(tau_cs_plus_petit, T, [corrfunc], n_repeats)
+    #             optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    #             loss = nn.L1Loss()
+    #             o = Overfit(model, optimizer, loss, gen.generate, sim_width=128, speckle_size=3, time_series_length=50,
+    #                         correlation_function_sampling=100)
+    #             lr_str = str(lr).replace(".", "p")
+    #             callback_name = f"plus_petit_lr_{lr_str}_g1_{corrfunc.__name__}_data_len_{n_data}_trial_{i + 1}"
+    #             callback = SpeckleCallback(callback_name, model_saves,
+    #                                        max_checkpoints=5, keep_when_multiple=10)
+    #             losses = o(n_epochs, None, callback,
+    #                        dataloader_kwargs={"batch_size": batch_size, "shuffle": False, "num_workers": 4,
+    #                                           "pin_memory": True})
+
+    # tau_c approx T
+    for i in range(n_trials):
+        for lr in [1e-4, 1e-3]:
+            for corrfunc in corrfuncs:
+                model = SpeckleNN(cnn_out_channels=(16, 32, 64)).to(device)
+                gen = MultipleTimeIntegratedTimeSeriesGenerator(tau_cs_approx, T, [corrfunc], n_repeats)
+                optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+                loss = nn.L1Loss()
+                o = Overfit(model, optimizer, loss, gen.generate, sim_width=128, speckle_size=3, time_series_length=50,
+                            correlation_function_sampling=100)
+                lr_str = str(lr).replace(".", "p")
+                callback_name = f"approx_lr_{lr_str}_g1_{corrfunc.__name__}_data_len_{n_data}_trial_{i + 1}"
+                callback = SpeckleCallback(callback_name, model_saves,
+                                           max_checkpoints=5, keep_when_multiple=10)
+                losses = o(n_epochs, None, callback,
+                           dataloader_kwargs={"batch_size": batch_size, "shuffle": False, "num_workers": 4,
+                                              "pin_memory": True})
+    # tau_c > T
+    for i in range(n_trials):
+        for lr in [1e-4, 1e-3]:
+            for corrfunc in corrfuncs:
+                model = SpeckleNN(cnn_out_channels=(16, 32, 64)).to(device)
+                gen = MultipleTimeIntegratedTimeSeriesGenerator(tau_cs_approx, T, [corrfunc], n_repeats)
+                optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+                loss = nn.L1Loss()
+                o = Overfit(model, optimizer, loss, gen.generate, sim_width=128, speckle_size=3, time_series_length=50,
+                            correlation_function_sampling=100)
+                lr_str = str(lr).replace(".", "p")
+                callback_name = f"plus_grand_lr_{lr_str}_g1_{corrfunc.__name__}_data_len_{n_data}_trial_{i + 1}"
+                callback = SpeckleCallback(callback_name, model_saves,
+                                           max_checkpoints=5, keep_when_multiple=10)
+                losses = o(n_epochs, None, callback,
+                           dataloader_kwargs={"batch_size": batch_size, "shuffle": False, "num_workers": 4,
+                                              "pin_memory": True})
+
+    exit()
 
     # load = torch.load(r"C:\Users\goubi\OtherGit\code_article_gabriel\source\speckles\callbacks\range_10_L1_epoch_4.pt")
     # print(load.keys())
