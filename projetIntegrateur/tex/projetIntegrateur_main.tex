@@ -135,7 +135,7 @@ Il faut aussi penser à la normalisation. L'échelle d'intensité des images peu
     \label{fig:specklesGaussianMask}
 \end{figure}
 \\
-Le modèle principal est schématiquement présenté à la figure \ref{fig:schema_v1}, avec les hyperparamètres initiaux. Ceux-ci peuvent changer durant le développement du projet. Pour l'entraînement, plusieurs modalités de simulations seront présentées aléatoirement à chaque batch. Les modalités pour chaque séquence seront décrites dans un fichier csv de métadonnées. Par modalité, on fait référence au paramètres physiques de l'imagerie, comme le temps caractéristique, le temps d'intégration et la fonction de corrélation. Comme ces paramètres jouent un rôle important dans l'entraînement, plusieurs instances de chaque combinaisons seront requises. Le DataLoader permet de bien distribuer aléatoirement les diverses simulations pour que le réseau aie une vue d'ensemble et non seulement quelques exemples ayant les même propriétés.
+Le modèle principal est schématiquement présenté à la figure \ref{fig:schema_v1}, avec les hyperparamètres initiaux. Ceux-ci peuvent changer durant le développement du projet. Pour l'entraînement, plusieurs modalités de simulations seront présentées aléatoirement à chaque batch. Les modalités pour chaque séquence seront décrites dans un fichier csv de métadonnées. Par modalité, on fait référence au paramètres physiques de l'imagerie, comme le temps caractéristique, le temps d'intégration et la fonction de corrélation. Comme ces paramètres jouent un rôle important dans l'entraînement, plusieurs instances de chaque combinaisons seront requises. Le DataLoader permet de bien distribuer aléatoirement les diverses simulations pour que le réseau aie une vue d'ensemble et non seulement quelques exemples ayant les même propriétés.\todo{Modifier image, version de base}
 \begin{figure}[h!!]
     \centering
     \includegraphics[width=1\linewidth]{images/modele_DESS_projet_v1.pdf}
@@ -336,7 +336,81 @@ Pour la deuxième étape, il a été nécessaire de retourner à la base. Il est
 	\item Entraîner sur $300$ époques;
 	\end{enumerate}
 \end{itemize}
-Il est aussi important d'avoir une optimisation adéquate lors de l'entraînement. Le test de sur-apprentissage s'est effectué à l'aide de l'optimiseur Adam\todo{Citer} avec deux taux d'apprentissage. On a utilisé un taux de $10^{-3}$, puis un taux de $10^{-4}$. La perte est la perte $L1$, mais appliquée sur le logarithme de la sortie et de la cible, donc la log erreur absolue. Comme les temps caractéristique sont généralement petits, utiliser le logarithme permet d'avoir une échelle intéressante limitant la perte du gradient.
+Il est aussi important d'avoir une optimisation adéquate lors de l'entraînement. Le test de sur-apprentissage s'est effectué à l'aide de l'optimiseur Adam\todo{Citer} avec deux taux d'apprentissage. On a utilisé un taux de $10^{-3}$, puis un taux de $10^{-4}$. La perte est la perte $L1$, mais appliquée sur le logarithme de la sortie et de la cible, donc la log erreur absolue. Comme les temps caractéristique sont généralement petits, utiliser le logarithme permet d'avoir une échelle intéressante limitant la perte du gradient. La figure \ref{fig:allLossesOverfitPlusPetit} montre les pertes en entraînement pour le régime $\tau_c < T$, et ce pour les deux fonctions de corrélations et les deux taux d'apprentissage. Dix entraînement pour un même ensemble de paramètres physiques ont été faits, permettant de confirmer l'entraînement et non simplement de la chance pour un essai unique. On remarque que les deux corrélations donnent un comportement similaire d'entraînement, ce qui laisse croire qu'il n'y a pas de difficulté spécifique à l'une ou l'autre. On remarque aussi qu'un taux d'apprentissage plus élevé, soit $10^{-3}$ donne un entraînement plus rapide, convergeant vers de plus petites pertes avant le taux de $10^{-4}$. La figure \ref{fig:moyennesLossesOverfitPlusPetit} montre la moyenne des quatre cas étudiés à la figure \ref{fig:allLossesOverfitPlusPetit}, permettant de mieux visualiser la meilleure performance du taux $10^{-3}$, mais aussi le comportement similaire des deux fonctions de corrélation, bien que le cas gaussien semble devenir plus difficile à apprendre à partir de l'époque $200$.
+\newpage
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=1\linewidth]{images/all_losses_overfit_plus_petit.pdf}
+    \caption{Graphiques des courbes d'entraînement pour les principaux paramètres physiques du régime $\tau_c < T$. Sur une même ligne, on compare l'effet du taux d'apprentissage.}
+    \label{fig:allLossesOverfitPlusPetit}
+\end{figure}
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=0.9\linewidth]{images/moyennes_overfit_plus_petit.pdf}
+    \caption{Moyennes des dix essais d'entraînement pour les quatre configurations importantes pour le régime $\tau_c < T$.}
+    \label{fig:moyennesLossesOverfitPlusPetit}
+\end{figure}
+\newpage
+Pour le régime $\tau_c \approx T$, on a aussi effectué dix entraînements avec les mêmes taux d'apprentissage, autant pour une corrélation exponentielle que gaussienne. Les dix courbes d'entraînement sont présentées à la figure \ref{fig:allLossesOverfitApprox}, alors que les moyennes sont présentées à la figure \ref{fig:moyennesLossesOverfitApprox}. On remarque une convergence rapide dans les quatre cas, mais aussi qu'un taux d'apprentissage plus petit serait mieux.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=1\linewidth]{images/all_losses_overfit_approx.pdf}
+    \caption{Graphiques des courbes d'entraînement pour les principaux paramètres physiques du régime $\tau_c \approx T$. Sur une même ligne, on compare l'effet du taux d'apprentissage.}
+    \label{fig:allLossesOverfitApprox}
+\end{figure}
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=0.9\linewidth]{images/moyennes_overfit_approx.pdf}
+    \caption{Moyennes des dix essais d'entraînement pour les quatre configurations importantes pour le régime  $\tau_c \approx T$.}
+    \label{fig:moyennesLossesOverfitApprox}
+\end{figure}
+\newpage
+Finalement, les courbes des dix entraînement du régime $\tau_c > T$ sont présentées à la figure \ref{fig:allLossesOverfitPlusGrand} et la figure \ref{fig:moyennesLossesOverfitPlusGrand} présente les moyennes. Les courbes sont similaires à celles du régime précédent, notamment avec un taux de $10^{-4}$ plus efficace sur le long terme.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=1\linewidth]{images/all_losses_overfit_plus_grand.pdf}
+    \caption{Graphiques des courbes d'entraînement pour les principaux paramètres physiques du régime $\tau_c > T$. Sur une même ligne, on compare l'effet du taux d'apprentissage.}
+    \label{fig:allLossesOverfitPlusGrand}
+\end{figure}
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=0.9\linewidth]{images/moyennes_overfit_plus_grand.pdf}
+    \caption{Moyennes des dix essais d'entraînement pour les quatre configurations importantes pour le régime  $\tau_c > T$.}
+    \label{fig:moyennesLossesOverfitPlusGrand}
+\end{figure}
+\newpage
+Finalement, il est aussi pertinent de vérifier si un taux d'apprentissage de $10^{-2}$ serait viable. On a alors expérimenté avec le régime $\tau_c < T$, car c'est lui qui pourrait bénéficier d'un taux d'apprentissage plus élevé. On a alors entraîné sur $200$ époques pour le même nombre de données et pour dix essais indépendants. La figure \ref{fig:overfitPlusPetit_mauvais} montre les dix courbes d'entraînement, ainsi que la moyenne. Il est évident par la figure que ce taux d'entraînement n'est pa à utiliser, du moins sur toutes les époques. On plafonne rapidement à une perte autour de $0.85$, ce qui n'est pas optimal comparativement aux taux plus petits utilisés précédemment.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=0.9\linewidth]{images/plus_petit_0p01_overfit.pdf}
+    \caption{Courbes et moyenne des dix essais d'entraînement dans le régime $\tau_c < T$ pour un taux d'apprentissage de $10^{-2}$ et une corrélation exponentielle.}
+    \label{fig:overfitPlusPetit_mauvais}
+\end{figure}
+En terminant ce chapitre, il est pertinent de parler de l'interprétation de la perte $LEA$, soit la log erreur absolue. Pour rappel, si $\tau_c$ est le vrai temps caractéristique et $\hat{\tau}_c$ est l'estimation du réseau, la perte $LEA$ est définie comme:
+\begin{align*}
+LEA = \abs{\log\hat{\tau}_c - \log\tau_c} = \abs{\log\left(\frac{\hat{\tau}_c}{\tau_c}\right)}
+\end{align*}
+et on peut revenir à l'échelle naturelle avec:
+\begin{align*}
+E = \exp{\pm LEA}
+\end{align*}
+où $E$ est l'erreur multiplicative entre $\hat{\tau}_c$ et $\tau_c$. Par exemple, si on a $LEA = 1$, on a $E = \exp{\pm1}$, donc l'erreur multiplicative est soit d'environ $2.72$ ou $0.37$, donc que $\frac{\hat{\tau}_c}{\tau_c} \approx 2.72$ ou $\frac{\hat{\tau}_c}{\tau_c} \approx 0.37$. Dans les cas présentés jusqu'ici, on arrive presque tout le temps à des pertes finales sous $10^{-1}$ (voire $10^{-2}$), ce qui donne des erreurs multiplicatives de moins de $\exp{\pm 0.1}$, soit entre $0.9$ et $1.1$. Si on prend un $\tau_c$ de $0.5$, on a alors une estimation dans l'intervalle $[0.45, 0.55]$, ce qui est très bien pour un intervalle conservateur compte tenu de la complexité stochastique des tavelures laser. Le réseau est capable d'apprendre une petite séquence. Il faut maintenant tester l'entraînement et la validation sur un jeu de données complet.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 %\newpage
 %\appendix                       % annexes le cas échéant
 %\chapter{Base mathématique des tavelures}\label{baseMath}
