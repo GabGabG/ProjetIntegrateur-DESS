@@ -219,3 +219,7 @@ cython_debug/
 
 # Dossiers de build (si jamais)
 build/
+
+
+# Data (à générer localement)
+projetIntegrateur/speckle_data/
