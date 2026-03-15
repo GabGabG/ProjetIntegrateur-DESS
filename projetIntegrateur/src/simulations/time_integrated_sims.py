@@ -26,7 +26,7 @@ class MultipleTimeIntegratedTimeSeriesGenerator:
         return series
 
     def generate(self, verbose_lvl: int = 3, root: str = "", clear_root: bool = False, return_all: bool = False,
-                 metadata_name: str = "metadata", base_name: str = "speckles", shuffle_combinaisons: bool = False,
+                 metadata_name: str = "metadata.csv", base_name: str = "speckles", shuffle_combinaisons: bool = False,
                  to_keep: int = -1, *time_series_args,
                  **time_series_kwargs) -> Union[tuple[np.ndarray, pd.DataFrame], pd.DataFrame]:
         if clear_root:
