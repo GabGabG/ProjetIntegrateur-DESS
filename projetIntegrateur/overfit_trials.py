@@ -109,7 +109,7 @@ class RegimeTrials:
 if __name__ == '__main__':
     batch_size = 8
     n_epochs = 300
-    model_saves = r"C:\Users\goubi\OtherGit\code_article_gabriel\source\speckles\overfits"
+    model_saves = "overfits"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_repeats = 2
     corrfuncs = [expon, gaussian]
