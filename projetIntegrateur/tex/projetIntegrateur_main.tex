@@ -118,16 +118,14 @@ Au cours des dernières années, les chercheurs ont utilisé de plus en plus l'a
 \newpage
 \chapter{Choix des modèles}
 La programmation des modèles se fera à l'aide du module \textit{PyTorch} du langage de programmation \textit{Python}.
-\section{Modèle principal}
-Le modèle principal sélectionné est un mixte entre un réseau convolutionnel et un réseau récurrent, similaire à un modèle présenté dans \cite{kaler_deep_2023}. Ce choix s'explique par la nature des tavelures et des statistiques importantes. Dans un premier temps, l'aspect spatial des tavelures est important à considérer. Comme il s'agit d'un motif d'interférence et d'imagerie, il est possible d'avoir des sections d'images qui sont sans information pertinente. Par exemple, des minimums sombres ou une absence d'illumination laissant des pixels sans intensité. L'avantage du CNN est aussi d'effectuer une sélection des régions importantes, diminuant la dimensionnalité. Il est important de noter que le pooling ne sera pas utilisé entre les couches de CNN, car cette étape diminue la qualité spatiale de l'information, parfois cachée. Il faut aussi mentionné que le réseau CNN ne devra pas être très profond étant donné que seules des statistiques de premier et de second ordre sont pertinente. Utiliser un réseau trop profond pourrait mener à l'extraction d'information non pertinente rendant l'apprentissage plus difficile. À la fin de l'étape de convolution, un mécanisme d'attention spatiale sera utilisé pour pondérer les images selon la pertinence des pixels à partir des caractéristiques extraites des couches de convolution.
+\section{Modèle initial scalaire}
+Le modèle principal sélectionné est un mixte entre un réseau convolutionnel et un réseau récurrent, similaire à un modèle présenté dans \cite{kaler_deep_2023}. Ce choix s'explique par la nature des tavelures et des statistiques importantes. Dans un premier temps, l'aspect spatial des tavelures est important à considérer. Comme il s'agit d'un motif d'interférence et d'imagerie, il est possible d'avoir des sections d'images qui sont sans information pertinente. Par exemple, des minimums sombres ou une absence d'illumination laissant des pixels sans intensité. L'avantage du CNN est aussi d'effectuer une sélection des régions importantes, diminuant la dimensionnalité. Il est important de noter que le pooling ne sera pas utilisé entre les couches de CNN, car cette étape diminue la qualité spatiale de l'information, parfois cachée. Il faut aussi mentionner que le réseau CNN ne devra pas être très profond étant donné que seules des statistiques de premier et de second ordre sont pertinente. Utiliser un réseau trop profond pourrait mener à l'extraction d'information non pertinente rendant l'apprentissage plus difficile. À la fin de l'étape de convolution, un mécanisme d'attention spatiale sera utilisé sélectionner les combinaisons de caractéristiques pertinentes. Ce mécanisme est composé d'un petit perception multicouches (MLP) permettant de réduire la dimensionnalité des caractéristiques, forçant le réseau à apprendre comment réduire. Comment les caractéristiques sont spattiales, le MLP sert d'attention spatiale. Cette méthode est inspirée par la structure \textit{Network In Network}\cite{lin_network_2014} et par les architectures \textit{Squeeze-and-Excitation Networks}\cite{hu_squeeze-and-excitation_2017}.
 \\ \\
-Dans un second temps, un RNN de type GRU sera utilisé pour extraire l'information temporelle à partir de l'attention spatiale. Pour y arriver, un pooling sera appliqué afin de vectoriser les caractéristiques. Par la suite un réseau de type GRU sera entraîné sur une séquence temporelle de tavelures pour extraire l'information scalaire du temps caractéristique. Le choix d'un GRU repose principalement sur sa simplicité contrairement à un LSTM. Il sera toujours possible de tester un LSTM pour vérifier les performances. L'avantage d'un réseau récurrent est dans sa capacité à se souvenir ou oublier l'information passée d'un séquence, ce qui est important dans le cas des tavelures, car pour le temps caractéristique de corrélation, l'information réside dans toute la séquence temporelle et permettra d'estimer un scalaire en prédiction. Le nombre de couches sera petit pour éviter le surapprentissage: débuter avec une seule couche et augmenter au besoin.
+Dans un second temps, un RNN de type GRU sera utilisé pour extraire l'information temporelle à partir de l'attention spatiale. Pour y arriver, un pooling sera appliqué afin de vectoriser les caractéristiques. Par la suite un réseau de type GRU sera entraîné sur une séquence temporelle de tavelures pour extraire l'information scalaire du temps caractéristique. Le choix d'un GRU repose principalement sur sa simplicité contrairement à un LSTM. Il sera toujours possible de tester un LSTM pour vérifier les performances. L'avantage d'un réseau récurrent est dans sa capacité à se souvenir ou oublier l'information passée d'un séquence, ce qui est important dans le cas des tavelures, car pour le temps caractéristique de corrélation, l'information réside dans toute la séquence temporelle et permettra d'estimer un scalaire en prédiction. Le nombre de couches sera petit pour éviter le surapprentissage: débuter avec une seule couche et augmenter au besoin. En plus des caractéristiques extraites du CNN, le temps d'intégration est donné au RNN. Cette quantité est normalement connue lors des expériences et peut servir à déterminer le temps caractéristique.
 \section{Modèle secondaire}
 Si le temps le permet ou si le modèle principal s'avère problématique, le modèle secondaire est à étudier. Il s'agit d'un réseau récurrent convolutionnel, ConvRNN, de type ConvLSTM, comme utilisé dans \cite{kaler_deep_2023}. Un avantage de cette approche est la possibilité d'extraire une carte locale du temps caractéristique de manière plus naturelle que le modèle précédent. Par contre, l'interprétation du modèle reste un peu plus difficile, demandant plus de paramètres, et pourrait être plus long à l'entraînement. De plus, \textit{PyTorch} ne permet pas explicitement de créer un réseau ayant des couches ConvRRN, que ce soit ConvLSTM ou autre. Il existe toutefois une page GitHub où ConvLSTM est construit sur les bases de \textit{PyTorch}, voir le lien \url{https://github.com/ndrplz/ConvLSTM_pytorch}, ayant plus de 2000 étoiles et 444 \textit{forks}.
 \section{Pipeline d'entraînement}
-Les données utilisées pour l'entraînement sont présentées au chapitre \ref{donnees}. Les données générées peuvent être sous plusieurs formats, mais on va se contenter à les laisser en \textit{ndarray} de \textit{NumPy}, facilement transférable à \textit{PyTorch}. Si besoin, on peut sauvegrader les données au format \textit{.npy} et les stocker sur un disque. \textit{PyTorch} permet d'utiliser des utilitaires de création de datasets d'entraînement, de validation et de tests, ce qui sera utilisé pour s'assurer d'avoir un entraînement en \textit{batch} avec un certain aléatoire pour diversifier le contenu de chaque \textit{batch}. Il serait aussi possible à l'aide de l'orienté objet de faire en sorte que la génération des données d'entraînement soient \textit{on the go}, c'est-à-dire que quand on veut accéder à une \textit{batch}, on la génère directement. Cela peut aider à garder la mémoire disque libre, mais empêche la reproductibilité facile des entraînements.
-\\\\
-Il faut aussi penser à la normalisation. L'échelle d'intensité des images peut changer d'une expérience à l'autre, notamment à cause de l'intensité du laser, de la qualité de la caméra, etc. Dans le cas du projet courant, les images sont par défaut toutes à la même échelle, mais on peut induire une différence sans trop de problème. Il est donc important que le réseau normalise sur une même échelle les intensités. Deux approches sont souvent utilisées: $z$-score ou normalisation $[0, 1]$. La première approche est intéressante, car elle centre et réduit l'intensité, ayant alors une moyenne similaire à $0$ et une variance proche de $1$. Or, dans plusieurs cas d'imagerie, l'intensité décroît exponentiellement plus on s'éloigne du centre, comme montré à la figure \ref{fig:specklesGaussianMask}. Avec le $z$-score, un biais peut être induit selon la proportion de l'image qui est plus foncée que le reste à cause de la perte d'intensité. On peut penser à une approche par noyau où on applique le $z$-score localement dans des petites régions des images, mais cela aussi induit un biais vers l'uniformisation des intensités selon  la taille des tavelures. Une normalisation $z$-score temporelle peut aussi être intéressante à première vue, mais dans certains cas, les tavelures sont temporellement stationnaire (comme dans ce projet), donc on uniformise une fois de plus les images et on perd de l'information cruciale. On doit donc se pencher vers la normalisation $[0,1]$. On force alors les pixels à avoir une échelle identique, sans vraiment changer les probabilités. Elles se retrouvent certes translatées et modulées, mais leur nature ne devrait pas changer.
+Les données utilisées pour l'entraînement sont présentées au chapitre \ref{donnees}. Les données générées peuvent être sous plusieurs formats, mais on va se contenter à les laisser en \textit{ndarray} de \textit{NumPy}, facilement transférable à \textit{PyTorch}. Si besoin, on peut sauvegrader les données au format \textit{.npy} et les stocker sur un disque. \textit{PyTorch} permet d'utiliser des utilitaires de création de datasets d'entraînement, de validation et de tests, ce qui sera utilisé pour s'assurer d'avoir un entraînement en \textit{batch} avec un certain aléatoire pour diversifier le contenu de chaque \textit{batch}.
 \begin{figure}[h!!]
     \centering
     \includegraphics[width=1\linewidth]{images/staticWithGaussMask.pdf}
@@ -135,10 +133,10 @@ Il faut aussi penser à la normalisation. L'échelle d'intensité des images peu
     \label{fig:specklesGaussianMask}
 \end{figure}
 \\
-Le modèle principal est schématiquement présenté à la figure \ref{fig:schema_v1}, avec les hyperparamètres initiaux. Ceux-ci peuvent changer durant le développement du projet. Pour l'entraînement, plusieurs modalités de simulations seront présentées aléatoirement à chaque batch. Les modalités pour chaque séquence seront décrites dans un fichier csv de métadonnées. Par modalité, on fait référence au paramètres physiques de l'imagerie, comme le temps caractéristique, le temps d'intégration et la fonction de corrélation. Comme ces paramètres jouent un rôle important dans l'entraînement, plusieurs instances de chaque combinaisons seront requises. Le DataLoader permet de bien distribuer aléatoirement les diverses simulations pour que le réseau aie une vue d'ensemble et non seulement quelques exemples ayant les même propriétés.\todo{Modifier image, version de base}
+Le modèle initial est schématiquement présenté à la figure \ref{fig:schema_v1}, avec les hyperparamètres initiaux. Ceux-ci peuvent changer durant le développement du projet. Pour l'entraînement, plusieurs modalités de simulations seront présentées aléatoirement à chaque batch. Les modalités pour chaque séquence seront décrites dans un fichier csv de métadonnées. Par modalité, on fait référence au paramètres physiques de l'imagerie, comme le temps caractéristique, le temps d'intégration et la fonction de corrélation. Comme ces paramètres jouent un rôle important dans l'entraînement, plusieurs instances de chaque combinaisons seront requises. Le DataLoader permet de bien distribuer aléatoirement les diverses simulations pour que le réseau aie une vue d'ensemble et non seulement quelques exemples ayant les même propriétés.
 \begin{figure}[h!!]
     \centering
-    \includegraphics[width=1\linewidth]{images/modele_DESS_projet_v1.pdf}
+    \includegraphics[width=1\linewidth]{images/modele_DESS_projet_v2.pdf}
     \caption{Schéma montrant le pipeline du réseau utilisé pour le projet. Les hyperparamètres peuvent changer au cours du développement.}
     \label{fig:schema_v1}
 \end{figure}
@@ -307,8 +305,9 @@ Après optimisation des hyperparamètres, il sera décidé de quelle configurati
 \section{Exploration complémentaire (si le temps le permet)}
 Dans le cas où le projet avance très bien et qu'il reste suffisamment de temps, le modèle pourrait être modifié pour changer la sortie du réseau. Pour l'instant, une sortie scalaire est considérée, mais une carte locale de temps de corrélation serait plus précise pour des processus dynamiques qui ne sont pas stationnaire dans l'espace, comme différents tissus biologiques ayant différentes rigidités.
 \newpage
-\chapter{Expérimentations}
-L'expérimentation s'est principalement faite en deux étapes. Dans un premier temps, plusieurs séquences de paramètres statistiques et physiques différents sont fournies au modèle. Or, ce ne s'est pas avéré efficace pour tester la capacité d'apprentissage du modèle: les performances étaient très mauvaises et le réseau ne convergeait pas vers une solution à faible perte. On peut expliquer les problèmes par la haute dimensionnalité de l'espace des paramètres physiques et statistiques. En effet, on fait varier le temps caractéristique $\tau_c$ sur une plage dynamique importante, de même que pour le temps d'intégration $T$. On a alors un sous ensemble non négligeable de $\mathbb{R}^2$ où le réseau doit apprendre l'interdépendance des images et des paramètres. De plus, on fait aussi varier la fonction de corrélation temporelle entre une exponentielle et une gaussienne. Le problème devient rapidement lourd, surtout en mémoire. On ne peut pas efficacement apprendre seulement sur de petits sous-ensembles de l'espace des paramètres.\\ \\
+\chapter{Expérimentations initiales}
+L'expérimentation initiale s'est principalement faite en deux étapes. Dans un premier temps, plusieurs séquences de paramètres statistiques et physiques différents sont fournies au modèle. Or, ce ne s'est pas avéré efficace pour tester la capacité d'apprentissage du modèle: les performances étaient très mauvaises et le réseau ne convergeait pas vers une solution à faible perte. On peut expliquer les problèmes par la haute dimensionnalité de l'espace des paramètres physiques et statistiques. En effet, on fait varier le temps caractéristique $\tau_c$ sur une plage dynamique importante, de même que pour le temps d'intégration $T$. On a alors un sous ensemble non négligeable de $\mathbb{R}^2$ où le réseau doit apprendre l'interdépendance des images et des paramètres. De plus, on fait aussi varier la fonction de corrélation temporelle entre une exponentielle et une gaussienne. Le problème devient rapidement lourd, surtout en mémoire. On ne peut pas efficacement apprendre seulement sur de petits sous-ensembles de l'espace des paramètres.\\ \\
+\section{Sur-apprentissage}
 Pour la deuxième étape, il a été nécessaire de retourner à la base. Il est important en apprentissage automatique de déterminer si réellement un réseau peut apprendre. On doit donc s'assurer que le réseau puisse sur-apprendre un petit jeu de données. Pour y arriver, le modèle initial est modifié pour considérer le temps d'intégration comme une caractéristique fournie au réseau récurrent. De plus, une restriction sur le domaine des paramètres de simulation est requise. On fait seulement varier le temps caractéristique pour un temps d'intégration spécifique, ici fixé à $1$ (les unités sont arbitraires). Le temps caractéristique est divisé en trois modalités: plus petit que $T$, même ordre que $T$ et plus grand que $T$. On divise aussi l'entraînement selon la fonction de corrélation. Ces deux séparations permettent de déterminer si une modalité de temps caractéristique ou une fonction de corrélation cause un entraînement problématique. Voici la démarche de sur-apprentissage d'un petit jeu de données:
 \begin{itemize}
 \item Pour $\tau_c < T$:
@@ -336,7 +335,7 @@ Pour la deuxième étape, il a été nécessaire de retourner à la base. Il est
 	\item Entraîner sur $300$ époques;
 	\end{enumerate}
 \end{itemize}
-Il est aussi important d'avoir une optimisation adéquate lors de l'entraînement. Le test de sur-apprentissage s'est effectué à l'aide de l'optimiseur Adam\todo{Citer} avec deux taux d'apprentissage. On a utilisé un taux de $10^{-3}$, puis un taux de $10^{-4}$. La perte est la perte $L1$, mais appliquée sur le logarithme de la sortie et de la cible, donc la log erreur absolue. Comme les temps caractéristique sont généralement petits, utiliser le logarithme permet d'avoir une échelle intéressante limitant la perte du gradient. La figure \ref{fig:allLossesOverfitPlusPetit} montre les pertes en entraînement pour le régime $\tau_c < T$, et ce pour les deux fonctions de corrélations et les deux taux d'apprentissage. Dix entraînement pour un même ensemble de paramètres physiques ont été faits, permettant de confirmer l'entraînement et non simplement de la chance pour un essai unique. On remarque que les deux corrélations donnent un comportement similaire d'entraînement, ce qui laisse croire qu'il n'y a pas de difficulté spécifique à l'une ou l'autre. On remarque aussi qu'un taux d'apprentissage plus élevé, soit $10^{-3}$ donne un entraînement plus rapide, convergeant vers de plus petites pertes avant le taux de $10^{-4}$. La figure \ref{fig:moyennesLossesOverfitPlusPetit} montre la moyenne des quatre cas étudiés à la figure \ref{fig:allLossesOverfitPlusPetit}, permettant de mieux visualiser la meilleure performance du taux $10^{-3}$, mais aussi le comportement similaire des deux fonctions de corrélation, bien que le cas gaussien semble devenir plus difficile à apprendre à partir de l'époque $200$.
+Il est aussi important d'avoir une optimisation adéquate lors de l'entraînement. Le test de sur-apprentissage s'est effectué à l'aide de l'optimiseur Adam\cite{kingma_adam_2014} avec deux taux d'apprentissage. On a utilisé un taux de $10^{-3}$, puis un taux de $10^{-4}$. La perte est la perte $L1$, mais appliquée sur le logarithme de la sortie et de la cible, donc la log erreur absolue. Comme les temps caractéristique sont généralement petits, utiliser le logarithme permet d'avoir une échelle intéressante limitant la perte du gradient. La figure \ref{fig:allLossesOverfitPlusPetit} montre les pertes en entraînement pour le régime $\tau_c < T$, et ce pour les deux fonctions de corrélations et les deux taux d'apprentissage. Dix entraînement pour un même ensemble de paramètres physiques ont été faits, permettant de confirmer l'entraînement et non simplement de la chance pour un essai unique. On remarque que les deux corrélations donnent un comportement similaire d'entraînement, ce qui laisse croire qu'il n'y a pas de difficulté spécifique à l'une ou l'autre. On remarque aussi qu'un taux d'apprentissage plus élevé, soit $10^{-3}$ donne un entraînement plus rapide, convergeant vers de plus petites pertes avant le taux de $10^{-4}$. La figure \ref{fig:moyennesLossesOverfitPlusPetit} montre la moyenne des quatre cas étudiés à la figure \ref{fig:allLossesOverfitPlusPetit}, permettant de mieux visualiser la meilleure performance du taux $10^{-3}$, mais aussi le comportement similaire des deux fonctions de corrélation, bien que le cas gaussien semble devenir plus difficile à apprendre à partir de l'époque $200$.
 \newpage
 \begin{figure}[h!!]
     \centering
@@ -395,7 +394,208 @@ et on peut revenir à l'échelle naturelle avec:
 E = \exp{\pm LEA}
 \end{align*}
 où $E$ est l'erreur multiplicative entre $\hat{\tau}_c$ et $\tau_c$. Par exemple, si on a $LEA = 1$, on a $E = \exp{\pm1}$, donc l'erreur multiplicative est soit d'environ $2.72$ ou $0.37$, donc que $\frac{\hat{\tau}_c}{\tau_c} \approx 2.72$ ou $\frac{\hat{\tau}_c}{\tau_c} \approx 0.37$. Dans les cas présentés jusqu'ici, on arrive presque tout le temps à des pertes finales sous $10^{-1}$ (voire $10^{-2}$), ce qui donne des erreurs multiplicatives de moins de $\exp{\pm 0.1}$, soit entre $0.9$ et $1.1$. Si on prend un $\tau_c$ de $0.5$, on a alors une estimation dans l'intervalle $[0.45, 0.55]$, ce qui est très bien pour un intervalle conservateur compte tenu de la complexité stochastique des tavelures laser. Le réseau est capable d'apprendre une petite séquence. Il faut maintenant tester l'entraînement et la validation sur un jeu de données complet.
-
+\newpage
+\chapter{Résultats initiaux}
+\label{resultats_initiaux}
+Ce chapitre présente les principaux résultats d'entraînement obtenus durant la première partie du projet. Dans tous les cas présentés, on utilise le réseau schématisé à la figure \ref{fig:schema_v1}, mais avec des hyperparamètres différents. Le code utilisé dans le cadre de ce projet est disponible sur le GitHub public \url{https://github.com/GabGabG/ProjetIntegrateur-DESS} en constante évolution. À noter que les données, qui sont en grande quantité, ne sont que sur Valéria et peuvent être rendues diponibles si besoin.
+\section{Jeux de données}
+Pour ce chapitre, deux jeux de données sont utilisés, simulés selon ce qui est présenté au chapitre \ref{donnees}. Premièrement, un lot de $500$ séquences temporelles de $50$ images $128\times128$ est généré. Dans ces simulations, on a des tavelures de largeur moyenne de $3$ pixels et des temps de corrélations variant en logarithme entre $10^{-2}$ et $10$, pour un temps d'intégration de $1$ (toutes ces unités sont arbitraires, tant qu'elles sont les mêmes). Échantillon $100$ valeurs de $\tau_c$ uniformément dans l'espace logarithmique et génère $5$ séquences ayant le même $\tau_c$, d'où la taille finale de $500$ séquences. La fonction de corrélation est restée constante à la fonction exponentielle.
+\\ \\
+Deuxièmement, un lot de $5000$ séquences temporelles de $50$ images $128\times 128$ est généré. Les tavelures sont aussi de largeur moyenne de $3$ pixels, avec des temps de corrélations dans le même espace logarithmique. Par contre, on échantillonne $1000$ valeurs différentes de $\tau_c$ avec encore une fois $5$ répétitions par $\tau_c$, donnant $5000$ séquences. Le temps d'intégration et la fonction de corrélation n'ont pas changés.
+\section{Premier réseau}
+Le premier réseau est composé d'un CNN ayant trois couches, chacune donnant respectivement une carte de caractéristique de $16$, $32$ et $64$ canaux. Chaque couche est composée d'un noyau $3\times3$, suivi d'une activation ReLU. On applique un rembourrage des images avec un mode de réflection, permettant de garder la taille initiale des images. Le mode de réflection est choisi pour ne pas tenir compte de données fausses, comme le mode constant, et est logique avec la nature stochastique des tavelures, permettant de répéter les motifs par réflexion. À la fin du CNN, on applique une convolution $1x1$ permettant de ramener le nombre de canaux à $1$, et on passe le tout dans une couche linéaire diminuant le nombre de caractéristiques à $64$ par image, permettant une sorte d'attention spatiale pouvant apprendre.\\ \\
+Pour la partie récurrente, en plus des $64$ caractéristiques par images, on en ajoute une: le temps d'intégration. On donne ces caractéristiques à un GRU unidirectionnel d'une couche et $128$ unités cachées. Le tout donne au final un scalaire, soit le logarithme naturel du temps caractéristique de corrélation estimé. À la figure \ref{fig:learning_curves_v1}, on montre les courbes d'apprentissage pour ce réseau. On a utilisé le jeu de $500$ séquences temporelles de $50$ images, séparées en données d'entraînement ($80\%$) et de validation ($20\%$). L'apprentissage se fait par mini lots de taille $8$ et à l'aide d'un otpimiseur Adam auquel on spécifie un taux d'apprentissage de $10^{-4}$ qui reste constant. On note un fort sur-apprentissage, car la perte en validation atteint rapidement un plateau. Le second réseau sera modifié pour tenter de cibler la cause de la mauvaise généralisation.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=1\linewidth]{images/learning_curves_v1.pdf}
+    \caption{Courbes d'entraînement et de validation pour le premier réseau. On entraîne sur $100$ époques.}
+    \label{fig:learning_curves_v1}
+\end{figure}
+\newpage
+\section{Deuxième réseau}
+Le second réseau diffère du premier dans le nombre de cannaux et de couches du CNN, du nombre de neurones dans la partie linéaire d'attention et dans le nombre d'unités cachées du GRU. On a deux couches CNN, toutes deux avec $8$ canaux de sortie. Pour la couche linéaire, on a $32$ sorties au lieu de $64$. Le GRU contient $64$ unités cachées. Le but de ce réseau est de vérifier si le premier réseau était trop complexes pour les données, donc favorisait le sur-apprentissage. On garde le même nombre de mini lots et le même optimiseur Adam avec un taux d'apprentissage de $10^{-4}$, et on entraîne sur les même séquences. La figure \ref{fig:learning_curves_v2} montre les courbes d'entraînement pour ce réseau. On remarque des performances similaires, quoique légèrement meilleures avec un plateau plus tard et plus bas, ainsi qu'avec un sur-apprentissage plus lent à démarrer. Cela laisse croire que le modèle peut être rétrécie sans rendre l'apprentissage plus difficile.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=1\linewidth]{images/learning_curves_v2.pdf}
+    \caption{Courbes d'entraînement et de validation pour le deuxième réseau. On entraîne sur $100$ époques.}
+    \label{fig:learning_curves_v2}
+\end{figure}
+\section{Troisième réseau}
+Le troisième réseau est aussi une légère réduction du premier. On a une fois de plus deux couches, comme le second, mais cette fois les canaux sont $8$, puis $16$. On ne change pas l'attention ni le GRU. Par contre, on utilise le jeu de $5000$ données. Une possible explication des mauvaises performances des deux premiers est le manque de données. Étant donné la nature stochastique des tavelures, un plus grand nombre de données pourrait apporter une bonne amélioration. On utilise encore Adam et des mini lots de taille $8$, ainsi qu'un taux d'apprentissage de $10^{-4}$. La figure \ref{fig:learning_curves_v3} présente les courbes d'apprentissage. On remarque un comportement similaire aux deux réseaux précédents, mais toutefois une performance en validation moins bonne que ce qu'on pourrait espérer.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=1\linewidth]{images/learning_curves_v3.pdf}
+    \caption{Courbes d'entraînement et de validation pour le troisième réseau. On entraîne sur $100$ époques.}
+    \label{fig:learning_curves_v3}
+\end{figure}
+\section{Quatrième réseau}
+Le quatrième réseau est le même que le troisième, mais où on a augmenter le taux d'apprentissage à $10^{-3}$. On utilise les mêmes données que le précédent réseau, avec Adam et des mini lots de taille $8$. Augmenter le taux d'apprentissage pourrait accélérer l'entraînement et empêcher le réseau de tomber des extremums qui ne sont pas optimaux, donc potentiellement améliorer la validation. La figure \ref{fig:learning_curves_v4} montre les courbes d'apprentissage du réseau quatre. On note une amélioration non négligeable de la performance en validation avec une perte variant autour de $0.1$, ce qui laisse croire qu'augmenter le taux d'apprentissage permet de meilleurs résultats. On note toutefois d'assez importantes variations de la perte d'une époque à l'autre. Ces variations peuvent être causée par un taux d'apprentissage un peu trop élevé. Avoir un taux entre $10^{-4}$ et $10^{-3}$ pourrait s'avérer intéressant.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=1\linewidth]{images/learning_curves_v4.pdf}
+    \caption{Courbes d'entraînement et de validation pour le quatrième réseau. On entraîne sur $100$ époques.}
+    \label{fig:learning_curves_v4}
+\end{figure}
+\newpage
+\section{Cinquième réseau}
+Le cinquième et dernier réseau présenté dans ce chapitre est le même que le précédent, mais où on réduit de moité le taux d'apprentissage, donnant $5\times 10^{-4}$, soit un entre deux pour le troisième et le quatrième réseau. La figure \ref{fig:learning_curves_v5} montre ses courbes d'apprentissage. On remarque une performance en validation meilleure que les quatre autres réseaux présentés, avec une perte généralement sous la barre de $0.1$. On remarque encore quelques fortes variations, donc il resterait de l'optimisation à faire pour adoucir la courbe de validation.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=1\linewidth]{images/learning_curves_v5.pdf}
+    \caption{Courbes d'entraînement et de validation pour le cinquième réseau. On entraîne sur $100$ époques.}
+    \label{fig:learning_curves_v5}
+\end{figure}
+\newpage
+\section{Autres métriques d'analyse}
+La perte LEA est intéressante pour avoir une vue globale. Par contre, elle ne permet pas vraiment d'évaluer la justesse du réseau dans sa pleine complexité. On a vu au chapitre précédent que selon le ratio $T/\tau_c$, l'apprentissage se fait plus ou moins difficilement. Il faut donc s'intéresser à la précision en fonction du temps caractéristique ciblé.
+\subsection{Premier réseau}
+Pour le premier réseau, la figure \ref{fig:LAE_vs_tau_c_v1} montre la log erreur absolue en fonction du $\tau_c$ cible.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=\linewidth]{images/LAEVsTargs_v1.pdf}
+    \caption{Perte log erreur absolue du premier réseau en fonction des cibles pour l'entraînement et la validation. On affiche quelques époques par graphique.}
+    \label{fig:LAE_vs_tau_c_v1}
+\end{figure}
+On remarque que l'entraînement se fait bien, avec une perte généralement entre $0.1$ et $0.01$ pour la plupart des époques affichées. Ce constat n'est pas nouveau, on savait déjà que le réseau avait un apprentissage en entraînement très bon. Pour la validation, ce n'est pas pareil. On remarque un perte plus élevée et qui semble augmenter avec la grandeur des cibles. Ce constat est confirmé à la figure \ref{fig:predsVsTargs_v1} qui montre $\hat{\tau}_c$ en fonction de $\tau_c$. La légende contient, en plus de l'époque associée à la couleur de la courbe, le score $R^2$, soit la qualité de la régression linéaire entre les prédictions et les cibles. On remarque, en validation, que plus la valeur de la cible augmente, plus le réseau devient imprécis. On peut aussi se concenter sur la figure \ref{fig:predsVsTargs_v1_log} qui montre aussi $\hat{\tau}_c$ en fonction de $\tau_c$, mais en échelle logarithmique, ce qui peut être plus représentatif de l'apprentissage, car c'est sur cet échelle qu'on calcule la perte après tout. L'avantage de l'échelle logarithmique est principalement de mieux voir le comportement des cibles de petites valeurs. On y remarque une bonne précision, d'où les coefficients de détermination $R^2$ plus élevés, mais elle diminue avec l'amplitude de la cible.
+\newpage
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=\linewidth]{images/predsVsTargs_v1.pdf}
+    \caption{Prédictions en fonction des cibles du le premier réseau pour l'entraînement et la validation. On affiche quelques époques par graphique.}
+    \label{fig:predsVsTargs_v1}
+\end{figure}
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=\linewidth]{images/predsVsTargs_v1_log.pdf}
+    \caption{Log-prédictions en fonction des log-cibles du le premier réseau pour l'entraînement et la validation. On affiche quelques époques par graphique.}
+    \label{fig:predsVsTargs_v1_log}
+\end{figure}
+\newpage
+\subsection{Deuxième réseau}
+Pour le second réseau, les mêmes métriques sont évaluées. La figure \ref{fig:LAE_vs_tau_c_v2} montre la perte en fonction de la cible. La principale conclusion des courbes d'entraînement est vérifiée ici, soit qu'un réseau plus petit n'apporte pas, dans ce cas-ci, de dégradation de performances.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=\linewidth]{images/LAEVsTargs_v2.pdf}
+    \caption{Perte log erreur absolue du deuxième réseau en fonction des cibles pour l'entraînement et la validation. On affiche quelques époques par graphique.}
+    \label{fig:LAE_vs_tau_c_v2}
+\end{figure}
+On y voit aussi une certaine perte de performance avec la montée en grandeur de la cible, comme pour le premier réseau. La figure \ref{fig:predsVsTargs_v2}, et la figure \ref{fig:predsVsTargs_v2_log} pour l'échelle logarithmique, donnent la même conclusion sur la performance.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=\linewidth]{images/predsVsTargs_v2.pdf}
+    \caption{Prédictions en fonction des cibles du le deuxième réseau pour l'entraînement et la validation. On affiche quelques époques par graphique.}
+    \label{fig:predsVsTargs_v2}
+\end{figure}
+On y note aussi, dans les deux cas, des coefficients de détermination plus élevés que pour le premier réseau. Il est intéressant de constater que ces conclusions ne sont pas évidentes avec les courbes d'entraînement seules, notamment car elles moyennent sur les divers régimes de $\tau_c$. On voit finalement que la linéarité est mieux préservée dans l'espace log pour les hauts temps caractéristique dans ce second cas comparativement au premier cas.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=\linewidth]{images/predsVsTargs_v2_log.pdf}
+    \caption{Log-prédictions en fonction des log-cibles du le deuxième réseau pour l'entraînement et la validation. On affiche quelques époques par graphique.}
+    \label{fig:predsVsTargs_v2_log}
+\end{figure}
+\newpage
+\subsection{Troisième réseau}
+Pour le troisième réseau, la perte en fonction des cibles est présentée à la figure \ref{fig:LAE_vs_tau_c_v3}. On y voit qu'en tant que tel, ajouter des données n'est pas nécessairement mieux, car on a des performances proches du précédent réseau. Les figure de $\hat{\tau}_c$ en fonction de $\tau_c$, soit \ref{fig:predsVsTargs_v3} et \ref{fig:predsVsTargs_v3_log} pour l'échelle log, montrent la même conclusion, notamment par les coefficients de détermination.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=\linewidth]{images/LAEVsTargs_v3.pdf}
+    \caption{Perte log erreur absolue du troisième réseau en fonction des cibles pour l'entraînement et la validation. On affiche quelques époques par graphique.}
+    \label{fig:LAE_vs_tau_c_v3}
+\end{figure}
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=\linewidth]{images/predsVsTargs_v3.pdf}
+    \caption{Prédictions en fonction des cibles du le troisième réseau pour l'entraînement et la validation. On affiche quelques époques par graphique.}
+    \label{fig:predsVsTargs_v3}
+\end{figure}
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=\linewidth]{images/predsVsTargs_v3_log.pdf}
+    \caption{Log-prédictions en fonction des log-cibles du le troisième réseau pour l'entraînement et la validation. On affiche quelques époques par graphique.}
+    \label{fig:predsVsTargs_v3_log}
+\end{figure}
+On peut expliquer une partie des moins bonnes performances par l'augmentation non négligeables de temps caractéristiques dans le régime $\tau_c > T$ pour ce réseau contrairement au deux précédents. Au lieu d'avoir seulement quelques points, on y en retrouve beaucoup plus. Si les performances ne sont pas précises dans ce régime, alors augmenter le nombre de prédictions diminue la qualité générale sans surprise. Il faut alors changer des hyperparamètres du réseau, comme ce qui est fait pour le quatrième.
+\newpage
+\subsection{Quatrième réseau}
+Pour le quatrième réseau, on prend le troisième, mais on augmente le taux d'apprentissage de $10^{-4}$ à $10^{-3}$. La perte en fonction des cibles est présentée à la figure \ref{fig:LAE_vs_tau_c_v4}. On y voit une nette amélioration en validation avec des pertes plus souvent sous la barre de $0.1$, mais ayant encore la remontée pour $\tau_c$ qui augmente.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=\linewidth]{images/LAEVsTargs_v4.pdf}
+    \caption{Perte log erreur absolue du quatrième réseau en fonction des cibles pour l'entraînement et la validation. On affiche quelques époques par graphique.}
+    \label{fig:LAE_vs_tau_c_v4}
+\end{figure}
+La meilleure précision se voit aussi dans la figure \ref{fig:predsVsTargs_v4} où les coefficients de déterminations arrivent rapidement à surpasser $0.9$, la linéarité étant meilleure. Pour l'échelle logarithmique, on s'approche de l'unité, tel que montré à la figure \ref{fig:predsVsTargs_v4}. Bien qu'il y ait encore une certaine difficulté pour le régime $\tau_c > T$, augmenter le taux d'apprentissage rend cette difficulté plus facile à assimiler.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=\linewidth]{images/predsVsTargs_v4.pdf}
+    \caption{Prédictions en fonction des cibles du le quatrième réseau pour l'entraînement et la validation. On affiche quelques époques par graphique.}
+    \label{fig:predsVsTargs_v4}
+\end{figure}
+\newpage
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=\linewidth]{images/predsVsTargs_v4_log.pdf}
+    \caption{Log-prédictions en fonction des log-cibles du le quatrième réseau pour l'entraînement et la validation. On affiche quelques époques par graphique.}
+    \label{fig:predsVsTargs_v4_log}
+\end{figure}
+\newpage
+\subsection{Cinquième réseau}
+Pour le dernier réseau présenté, on se base sur le troisième et le quatrième, mais avec un taux de $5\times 10^{-4}$. Les courbes d'apprentissage semblaient indiquer que le réseau était dans les meilleurs, ce qui est aussi remarqué à la figure \ref{fig:LAE_vs_tau_c_v5}, soit la perte en fonction des cibles. Le régime $\tau_c < T$, ainsi que le régime $\tau_c\approx T$ sont souvent sous la barre de $0.01$ de perte, alors que le régime $\tau_c > T$ semble plus stable et varier légèrement autour de $0.1$.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=\linewidth]{images/LAEVsTargs_v5.pdf}
+    \caption{Perte log erreur absolue du cinquième réseau en fonction des cibles pour l'entraînement et la validation. On affiche quelques époques par graphique.}
+    \label{fig:LAE_vs_tau_c_v5}
+\end{figure}
+À la figure \ref{fig:predsVsTargs_v5}, on voit que les predictions restent proches des cibles sur un intervalle de $\tau_c$ plus grand, déviant plus lentement et à plus petite amplitude que pour les réseaux précédents, idem pour la figure en échelle logarithmique, la figure \ref{fig:predsVsTargs_v5_log}. On est plus centré sur la diagonale, et ce avec une variance plus faible.
+\newpage
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=\linewidth]{images/predsVsTargs_v5.pdf}
+    \caption{Prédictions en fonction des cibles du le cinquième réseau pour l'entraînement et la validation. On affiche quelques époques par graphique.}
+    \label{fig:predsVsTargs_v5}
+\end{figure}
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=\linewidth]{images/predsVsTargs_v5_log.pdf}
+    \caption{Log-prédictions en fonction des log-cibles du le cinquième réseau pour l'entraînement et la validation. On affiche quelques époques par graphique.}
+    \label{fig:predsVsTargs_v5_log}
+\end{figure}
+\newpage
+\section{Analyses supplémentaires}
+Dans tous les cas étudiés jusqu'à présent, on note une difficulté à traiter les cas où les cibles sont plus élevées que le temps d'intégration. Deux explications indépendantes peuvent être expliquées. Premièrement, en générant les temps caractéristiques sur une échelle logarithmique, on met l'emphase sur les petites valeurs, obtenant plus de $\tau_c$ dans les régimes $\tau_c < T$ et $\tau_c \approx T$. Cela peut créer un débalancement dans les données, donc un apprentissage moins efficace dans les cas éloignés de $\tau_c > T$. Le choix de l'échelle logarithmique n'est pas anodin. Dans la physique des tavelures, on retrouve plus souvent des cas $\tau_c < T$, car la décorrélation des matériaux se fait plus rapidement que l'intégration ou l'accumulation des pixels dans une caméra. Plus $\tau_c$ surpasse $T$, plus c'est un régime biologique rare, sauf si on s'intéresse à des surfaces rigides. Dans le cas biomédical, on reste souvent dans le cas $\tau_c < T$ ou $\tau_c \approx T$.
+\\ \\
+Deuxièmement, les réseaux utilisent des couches de convolutions 2D qui déterminent les caractéristiques importantes pour la partie récurrente. Ces convolutions n'ont accès qu'aux pixels d'une même image, ils n'ont pas de références explicitent au temps. On sait toutefois dans la physique des tavelures que le contraste spatial, soit $C = \frac{\sigma}{\mu}$ où $\sigma$ est l'écart-type d'intensité et $\mu$ en est la moyenne, dépend implicitement des propriétés temporelles. Dans le cas d'une corrélation temporelle exponentielle, on a la formule\cite{monMemoire}
+\begin{align*}
+C = \sqrt{\beta\frac{\tau_c}{2T}\left[2 + \frac{\tau_c}{T}\left(\exp{-\frac{2T}{\tau_c}} - 1\right)\right]}
+\end{align*}
+où $\tau_c$ est le temps caractéristique, $T$ est le temps d'intégration et $\beta$ est un paramètre qu'on va supposer égal à $1$. La figure \ref{fig:contrast_fct_tau_c} montre cette formule graphiquement, mais avec $T = 1$.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=0.95\linewidth]{images/contrast_fct_tau_c.pdf}
+    \caption{Contraste spatial en fonction du temps caractéristique $\tau_c$ pour un temps d'intégration constant à $1$.}
+    \label{fig:contrast_fct_tau_c}
+\end{figure}
+Plus $\tau_c$ augmente, plus le contraste approche $1$ en asymptote, donc peu importe $\tau_c$, le contraste reste proche de $1$ et ne donne plus beaucoup d'information à propos de la corrélation temporelle. Dans le régime $\tau_c \approx T$, on a un contraste croissant rapidement en fonction de $\tau_c$, donc beaucoup d'information à propos de la corrélation. Finalement, dans le cas $\tau_c < T$, on a aussi une asymptopte à $0$, donc si le temps caractéristique devient beaucoup plus petit que $T$, le contraste, un fois de plus, n'apporte pas d'information sur la corrélation temporelle. C'est ce qui pourrait expliquer les petites divergences dans les figures prédictions en fonction des cibles en échelle logarithme pour les petits $\tau_c$. La figure \ref{fig:contrastDiffDiffTauC}, tirée de \cite{monMemoire}, montre graphiquement que lorsque le ratio $T/\tau_c$ change, la différence de contraste devient plus ou moins évidente, donc renferme plus ou moins d'information. On voit que la différence de contraste est maximale lorsque $T$ est proche des temps caractéristiques impliqués.
+\begin{figure}[h!!]
+    \centering
+    \includegraphics[width=\linewidth]{images/contrastDiffDiffTauC.pdf}
+    \caption{Différence de contraste spatial en fonction du temps d’acquisition entre des tavelures corrélées exponentiellement avec $\tau_c = 0.5$ et $\tau_c = 1$.}
+    \label{fig:contrastDiffDiffTauC}
+\end{figure}
+\newpage
+\chapter{Seconde partie du projet}
+Dans la seconde moitié de la session, il sera question d'optimiser le réseau. On sait qu'il est possible d'apprendre et de généraliser sous certaines conditions. Il sera important de varier les conditions et d'augmenter la complexité. L'évaluation finale se fera ainsi à ce moment.
+\section{Optimisation}
+Dans le chapitre précédent, différentes architectures et différents hyperparamètres sont testés. Le dernier est le plus prometteur, mais il est peut-être possible d'en avoir un meilleur. Il peut être important d'effectuer une recherche d'hyperparamètres, comme le taux d'apprentissage, le nombre de couches de convolution, leurs tailles, leurs nombres de filtres, ainsi que la partie récurrente avec le nombre de couches GRU et le nombre d'unités cachées. De plus, il serait intéressant de tester l'ajout de composants qui sont normalement présent dans la plupart des architectures CNN, comme une normalisation entre les couches. Il ne sera pas question de \textit{batch norm} ici, car la structure d'une batch peut contenir différentes séquences temporelles indépendantes et on mélangerait ainsi les statistiques, brouillant l'information. \textit{Instance norm} est considéré. Dans la plupart des cas, ajouter une couche de normalisation aide la convergence. Finalement, éventuellement il serait important d'ajouter une couche de normalisation $[0, 1]$ en entrée du réseau, permettant de mettre toutes les images à la même échelle dans l'intervalle $[0, 1]$. Contrairement à une normalisation $z-score$, on ne modifie pas vraiment la nature des distributions de probabilité, on ne fait que les translater dans un certain intervalle.
+\section{Varier les conditions}
+On s'est pour l'instant seulement intéressé à une fonction de corrélation et un seul temps d'intégration lors des tests présentés dans le chapitre \ref{resultats_initiaux}. Or, n'avoir qu'un seul temps d'intégration n'est pas critique, car c'est le ratio $T/\tau_c$ qui joue un rôle primordial dans les statistiques spatiales, comme le contraste. En faisant varier $\tau_c$ seulement, on fait varier ce ratio sans avoir de temps d'intégration qui varie. Il serait toutefois intéressant de tester si le réseau entraîné sur, par exemple $T = 1$ performe aussi bien sur des données avec $T = 2$ et des ratios identiques. Ajouter différentes fonctions de corrélation est intéressant, car on peut vérifier la robustesse du réseau à prédire le temps de corrélation même si elle est structurellement différentes. Cela est point important vers l'obtention d'un modèle d'analyse demandant le moins de paramètres possibles, comme la fonction de corrélation qui est plus souvent qu'autrement inconnue.
+\\ \\
+Finalement, on peut aussi penser à ajouter un masque gaussien qui vient atténuer l'intensité plus on s'éloigne du centre de l'image. Cela permet de simuler des images plus réalistes où l'illumination n'est pas uniforme sur toute l'image, par exemple un laser qui illumine seulement un tache à profil gaussien.
+\section{Sélection d'un modèle scalaire final}
+On a effectuée une certaine analyse d'apprentissage et de généralisation dans le chapitre \ref{resultats_initiaux}. Il est important de bâtir sur cette analyse, notamment en testant la cohérance de prédiction. Si on donne en test plusieurs séquences ayant la même cible, il est important de déterminer si les prédictions sont similaires. La cohérence d'un réseau est primordiale, sinon il ne vaut rien.
+\section{Modèle cartographique: un aperçu}
+Si le temps le permet, il serait intéressant d'évaluer la pertinence et la faisabilité d'un réseau cartographique. Au lieu de donner un scalaire comme sortie (ce qui est le cas dans la première partie), le réseau prédirait une carte locale de temps caractéristique. Cette approche est très intéressante d'un point de vue biomédical, car on pourrait extraire de l'information locale et ensuite utiliser d'autres outils d'analyse pour faire une tâche quelconque. Par exemple, on image le cortex cérébrale et à partir de cette carte locale, on peut distinguer les vaisseaux sanguins du background par leur temps caractéristique normalement plus petit. Cette approche fait penser au \textit{laser speckle contrast imaging} (LSCI) où on image des tavelures et ensuite on applique des transformations pour calculer le contraste et extraire de l'information spatiale de résolution intéressante. Le problème avec le LSCI est surtout au niveau de la paramétrisation qui est assez lourde et handicapante.
 
 
 
