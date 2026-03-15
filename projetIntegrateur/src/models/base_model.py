@@ -4,7 +4,46 @@ from typing import Union
 import numpy as np
 
 
+class SpeckleCNN_GAP(nn.Module):
+    # TODO: Arranger hiérarchie classes + SpeckleNN
+
+    def __init__(self, out_channels: tuple = (16,),
+                 kernel_sizes: Union[tuple, int] = 3, strides: Union[tuple, int] = 1, paddings: Union[tuple, int] = 1,
+                 mlp_out: int = 64, padding_mode: str = "reflect"):
+        super(SpeckleCNN_GAP, self).__init__()
+        dims = (1, *out_channels)
+        n_convs = len(out_channels)
+        if isinstance(kernel_sizes, int):
+            kernel_sizes = (kernel_sizes,) * n_convs
+        if isinstance(strides, int):
+            strides = (strides,) * n_convs
+        if isinstance(paddings, int):
+            paddings = (paddings,) * n_convs
+        self.spatial_feature_extractor = nn.Sequential()
+        for i in range(n_convs):
+            c = nn.Conv2d(dims[i], dims[i + 1], kernel_sizes[i], strides[i], paddings[i], padding_mode=padding_mode)
+            self.spatial_feature_extractor.append(c)
+            r = nn.ReLU()
+            self.spatial_feature_extractor.append(r)
+
+        # Réduire le nombre de channels
+        # conv 1x1xC -> 1 channel
+        self.channel_projection = nn.Conv2d(dims[-1], 1, 1)
+
+        self.gap = nn.AdaptiveAvgPool2d(1)
+        self.attention_mlp = nn.Linear(1, mlp_out)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.spatial_feature_extractor(x)
+        x = self.channel_projection(x)
+        x = self.gap(x)
+        x = x.view(x.size(0), -1)
+        x = self.attention_mlp(x)
+        return x
+
+
 class SpeckleCNN(nn.Module):
+    # TODO: permettre instance norm avant les ReLU
     def __init__(self, input_sizes: tuple = (128, 128), out_channels: tuple = (16,),
                  kernel_sizes: Union[tuple, int] = 3, strides: Union[tuple, int] = 1, paddings: Union[tuple, int] = 1,
                  mlp_out: int = 64, padding_mode: str = "reflect"):
