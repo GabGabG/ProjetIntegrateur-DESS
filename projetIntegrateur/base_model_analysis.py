@@ -186,7 +186,7 @@ class BaseModelAnalysis:
 
 if __name__ == '__main__':
     epoch = 100
-    root = r"D:\Gab\DESS\checkpoints"
+    root_checkpoints = r"D:\Gab\DESS\checkpoints"
     root_preds = r"D:\Gab\DESS"
     image_root = r"C:\Users\goubi\OtherGit\ProjetIntegrateur-DESS\projetIntegrateur\tex\images"
     v1_name_preds_vs_targs = os.path.join(image_root, "predsVsTargs_v1.pdf")
@@ -221,7 +221,7 @@ if __name__ == '__main__':
                                    savefig_kw={"format": "pdf"}, log_scale=True)
     p.plot_LAE_fct_targets(epochs, v1_LAE_vs_targs, True, {"figsize": (16, 8), "sharey": True}, log_scale=True,
                            savefig_kw={"format": "pdf"})
-    p.learning_curves(*losses_from_checkpoint(root, "v1", 100), savename=v1_learning_curves,
+    p.learning_curves(*losses_from_checkpoint(root_checkpoints, "v1", 100), savename=v1_learning_curves,
                       subplots_kw={"figsize": (15, 8)}, savefig_kw={"format": "pdf"})
 
     p = BaseModelAnalysis(root_preds, "v2", template_preds)
@@ -231,7 +231,7 @@ if __name__ == '__main__':
                                    savefig_kw={"format": "pdf"}, log_scale=True)
     p.plot_LAE_fct_targets(epochs, v2_LAE_vs_targs, True, {"figsize": (16, 8), "sharey": True}, log_scale=True,
                            savefig_kw={"format": "pdf"})
-    p.learning_curves(*losses_from_checkpoint(root, "v2", 100), savename=v2_learning_curves,
+    p.learning_curves(*losses_from_checkpoint(root_checkpoints, "v2", 100), savename=v2_learning_curves,
                       subplots_kw={"figsize": (15, 8)}, savefig_kw={"format": "pdf"})
 
     p = BaseModelAnalysis(root_preds, "v3", template_preds)
@@ -241,7 +241,7 @@ if __name__ == '__main__':
                                    savefig_kw={"format": "pdf"}, log_scale=True)
     p.plot_LAE_fct_targets(epochs, v3_LAE_vs_targs, True, {"figsize": (16, 8), "sharey": True}, log_scale=True,
                            savefig_kw={"format": "pdf"})
-    p.learning_curves(*losses_from_checkpoint(root, "v3", 100), savename=v3_learning_curves,
+    p.learning_curves(*losses_from_checkpoint(root_checkpoints, "v3", 100), savename=v3_learning_curves,
                       subplots_kw={"figsize": (15, 8)}, savefig_kw={"format": "pdf"})
 
     p = BaseModelAnalysis(root_preds, "v4", template_preds)
@@ -251,7 +251,7 @@ if __name__ == '__main__':
                                    savefig_kw={"format": "pdf"}, log_scale=True)
     p.plot_LAE_fct_targets(epochs, v4_LAE_vs_targs, True, {"figsize": (16, 8), "sharey": True}, log_scale=True,
                            savefig_kw={"format": "pdf"})
-    p.learning_curves(*losses_from_checkpoint(root, "v4", 100), savename=v4_learning_curves,
+    p.learning_curves(*losses_from_checkpoint(root_checkpoints, "v4", 100), savename=v4_learning_curves,
                       subplots_kw={"figsize": (15, 8)}, savefig_kw={"format": "pdf"})
 
     p = BaseModelAnalysis(root_preds, "v5", template_preds)
@@ -261,5 +261,5 @@ if __name__ == '__main__':
                                    savefig_kw={"format": "pdf"}, log_scale=True)
     p.plot_LAE_fct_targets(epochs, v5_LAE_vs_targs, True, {"figsize": (16, 8), "sharey": True}, log_scale=True,
                            savefig_kw={"format": "pdf"})
-    p.learning_curves(*losses_from_checkpoint(root, "v5", 100), savename=v5_learning_curves,
+    p.learning_curves(*losses_from_checkpoint(root_checkpoints, "v5", 100), savename=v5_learning_curves,
                       subplots_kw={"figsize": (15, 8)}, savefig_kw={"format": "pdf"})
