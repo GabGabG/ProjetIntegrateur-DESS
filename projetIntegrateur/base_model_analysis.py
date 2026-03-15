@@ -186,9 +186,9 @@ class BaseModelAnalysis:
 
 if __name__ == '__main__':
     epoch = 100
-    root_checkpoints = r"D:\Gab\DESS\checkpoints"
-    root_preds = r"D:\Gab\DESS"
-    image_root = r"C:\Users\goubi\OtherGit\ProjetIntegrateur-DESS\projetIntegrateur\tex\images"
+    root_checkpoints = r"checkpoints"
+    root_preds = r"predictions"
+    image_root = r"tex\images"
     v1_name_preds_vs_targs = os.path.join(image_root, "predsVsTargs_v1.pdf")
     v2_name_preds_vs_targs = os.path.join(image_root, "predsVsTargs_v2.pdf")
     v3_name_preds_vs_targs = os.path.join(image_root, "predsVsTargs_v3.pdf")
