@@ -107,38 +107,8 @@ class OverfitAnalysis:
 
 
 if __name__ == '__main__':
-    # base_path = lambda trial: rf"D:\Gab\DESS\overfit\callbacks\data_len_16_L1_lr_0p01_{trial}_epoch_300.pt"
-    # all_losses = []
-    # for trial in range(10):
-    #     data = torch.load(base_path(trial + 1))
-    #     losses = data["mean_train_loss"]
-    #     all_losses.append(losses)
-    # all_losses = np.array(all_losses)
-    # plt.plot(range(1, 301), all_losses.T)
-    # plt.plot(range(1, 301), np.mean(all_losses, axis=0), label="Moyenne", color="black", ls="--")
-    # plt.xlabel("Époque")
-    # plt.ylabel("Perte LEA")
-    # plt.legend()
-    # plt.yscale("log")
-    # plt.tight_layout()
-    # plt.show()
-    # exit()
-    # path = r"C:\Users\goubi\Downloads\training_lr0p0001_v3_epoch_200.pt"
-    # data = torch.load(path)
-    # losses_train = data["mean_train_loss"]
-    # losses_val = data["mean_val_loss"]
-    # plt.plot(losses_train, label="Training Loss")
-    # plt.plot(losses_val, label="Validation Loss")
-    # plt.yscale("log")
-    # plt.show()
-    #
-    # exit()
-    root_plus_petit = r"C:\Users\goubi\OtherGit\code_article_gabriel\source\speckles\overfits"
-    root_approx = r"D:\Gab\DESS\overfit\callbacks"
-    root_plus_grand = r"D:\Gab\DESS\overfit\callbacks"
-    root_plus_petit_v2 = r"D:\Gab\DESS\overfit\callbacks"
-    images_root = r"C:\Users\goubi\OtherGit\ProjetIntegrateur-DESS\projetIntegrateur\tex\images"
-    regime = "approx"
+    root_plus_petit = root_approx = root_plus_grand = root_plus_petit_v2 = "overfits"
+    images_root = r"tex\images"
     lr1 = 1e-4
     lr2 = 1e-3
     g1_1 = "expon"
