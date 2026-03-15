@@ -90,9 +90,10 @@ class SpeckleCallback:
 
 
 class SpeckleTrainingLoop:
+    # TODO: arranger docstring pour nouveaux retours
 
     def __init__(self, model: SpeckleNN, optimizer: torch.optim.Optimizer, loss_function: callable,
-                 dataloader_train: DataLoader, dataloader_valid: DataLoader = None):
+                 dataloader_train: DataLoader, dataloader_valid: DataLoader = None, predictions_savefile: str = None):
         """
         Initializes the training loop.
         :param model: SpeckleRNN. The model to train.
@@ -101,6 +102,8 @@ class SpeckleTrainingLoop:
         values and the target values.
         :param dataloader_train: DataLoader from PyTorch. Dataloader used for training data.
         :param dataloader_valid: DataLoader from PyTorch. Dataloader used for validation data. If None, no validation
+        :param predictions_savefile: str. Name of the file to save predictions, either training or training and
+        validation. Defaults to `None`, no save file is created.
         is done (default).
         """
         self.__device = next(model.parameters()).device
@@ -111,9 +114,11 @@ class SpeckleTrainingLoop:
         self.__loss_function = loss_function
         self.__dataloader_train = dataloader_train
         self.__dataloader_valid = dataloader_valid
+        self.__predictions_savefile = predictions_savefile
+        self.__predictions_training = []
+        self.__predictions_validation = []
 
-    def __core(self, x: torch.Tensor, T: torch.Tensor, target: torch.Tensor,
-               return_predictions: bool = False) -> Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
+    def __core(self, x: torch.Tensor, T: torch.Tensor, target: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Inner code for the training and validation step. Puts data on the device, evaluates the model and computes the
         loss.
@@ -122,8 +127,7 @@ class SpeckleTrainingLoop:
         :param T: torch.Tensor. Tensor containing the integration times associated with each sequence of time steps.
         :param target: torch.Tensor. Tensor containing the target correlation time associated with each sequence of
         time steps.
-        :param return_predictions: bool. Whether to return the predictions of the model or not. Default is False,
-        no predictions are returned.
+
         :return: torch.Tensor or tuple of two torch.Tensor. If `return_predictions` is False, returns only the mean
         loss. If `return_predictions` is True, returns the mean loss and the (log) predictions.
         """
@@ -135,43 +139,60 @@ class SpeckleTrainingLoop:
         log_target = torch.log(target)
         log_pred = self.__model(x, T)
         loss = self.__loss_function(log_pred, log_target)
-        if return_predictions:
-            return loss, log_pred
-        return loss
+        return loss, log_pred
 
-    def __train_epoch(self) -> float:
+    def __train_epoch(self) -> tuple[float, torch.Tensor]:
         """
         Trains the model for a single epoch.
         :return: the average training loss.
         """
         self.__model.train()
         losses = []
+        total_samples = len(self.__dataloader_train.dataset)
+        current_preds_targets = torch.empty((2, total_samples), device=self.__device,
+                                            dtype=torch.float32)
 
+        index = 0
         for (x, T), target in tqdm(self.__dataloader_train, desc="Training", leave=True):
+            batch_size = x.size(0)
             self.__optimizer.zero_grad()
-            loss = self.__core(x, T, target)
+            loss, log_pred = self.__core(x, T, target)
             loss.backward()
 
             self.__optimizer.step()
             losses.append(loss.detach())
+            current_preds_targets[0, index:index + batch_size] = torch.exp(log_pred.detach()).flatten()
+            current_preds_targets[1, index:index + batch_size] = target.flatten()
+            index += batch_size
 
         mean_loss = torch.mean(torch.stack(losses)).item()
-        return mean_loss
 
-    def __valid_epoch(self) -> float:
+        return mean_loss, current_preds_targets
+
+    def __valid_epoch(self) -> tuple[float, torch.Tensor]:
         """
         Calculates validation for a single epoch.
         :return: the average validation loss.
         """
         self.__model.eval()
         losses = []
+
+        total_samples = len(self.__dataloader_valid.dataset)
+        current_preds_targets = torch.empty((2, total_samples), device=self.__device,
+                                            dtype=torch.float32)
+        index = 0
+
         with torch.no_grad():
             for (x, T), target in tqdm(self.__dataloader_valid, desc="Validation", leave=True):
-                loss = self.__core(x, T, target)
+                batch_size = x.size(0)
+                loss, log_pred = self.__core(x, T, target)
                 losses.append(loss.detach())
+                current_preds_targets[0, index:index + batch_size] = torch.exp(log_pred.detach()).flatten()
+                current_preds_targets[1, index:index + batch_size] = target.flatten()
+                index += batch_size
 
             mean_loss = torch.mean(torch.stack(losses)).item()
-        return mean_loss
+        return mean_loss, current_preds_targets
 
     def train(self, num_epochs: int, scheduler: torch.optim.lr_scheduler.LRScheduler = None,
               callback: SpeckleCallback = None) -> tuple[list, list]:
@@ -191,10 +212,12 @@ class SpeckleTrainingLoop:
         val_mean_loss = None
 
         for epoch in range(1, num_epochs + 1):
-            train_mean_loss = self.__train_epoch()
+            train_mean_loss, current_preds_targets_train = self.__train_epoch()
+            self.__predictions_training.append(current_preds_targets_train.cpu().numpy())
 
             if self.__dataloader_valid is not None:
-                val_mean_loss = self.__valid_epoch()
+                val_mean_loss, current_preds_targets_valid = self.__valid_epoch()
+                self.__predictions_validation.append(current_preds_targets_valid.cpu().numpy())
                 if scheduler is not None:
                     if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
                         scheduler.step(val_mean_loss)
@@ -206,10 +229,14 @@ class SpeckleTrainingLoop:
 
             if callback is not None:
                 callback(self.__model, self.__optimizer, scheduler, epoch, train_mean_losses, val_mean_losses)
+        if self.__predictions_savefile is not None:
+            np.savez(self.__predictions_savefile, train_preds=self.__predictions_training,
+                     val_preds=self.__predictions_validation)
 
         return train_mean_losses, val_mean_losses
 
     def test_model(self, test_dataloader: DataLoader) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        # TODO: améliorer retours: transformer listes en tensors -> ndarray?
         """
         Tests the current model.
         :param test_dataloader: DataLoader from PyTorch. Dataloader used to test the model with test data.
@@ -223,7 +250,7 @@ class SpeckleTrainingLoop:
         targets = []
         with torch.no_grad():
             for (x, T), target in tqdm(test_dataloader, desc="Test phase", leave=True):
-                loss, log_predictions = self.__core(x, T, target, True)
+                loss, log_predictions = self.__core(x, T, target)
                 losses.append(loss.detach().item())
                 log_predictions_all.append(log_predictions.detach())
                 targets.append(target.detach())
@@ -287,8 +314,6 @@ class Overfit:
 
 
 if __name__ == '__main__':
-    from ..simulations.time_integrated_sims import MultipleTimeIntegratedTimeSeriesGenerator
-    from ..simulations.correlation_functions import expon, gaussian
 
     batch_size = 8
     lr = 1e-3
@@ -384,6 +409,7 @@ if __name__ == '__main__':
     range_ = 64
     mini_train = Subset(train_dataset, range(range_))
     mini_train_loader = DataLoader(mini_train, batch_size=batch_size, shuffle=False, pin_memory=True, num_workers=4)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, pin_memory=True, num_workers=4)
 
     lr_str = str(lr).replace(".", "p")
     callback = SpeckleCallback(f"range_{range_}_L1_lr_{lr_str}", model_saves, max_checkpoints=5,
