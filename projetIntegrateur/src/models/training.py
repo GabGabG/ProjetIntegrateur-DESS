@@ -16,7 +16,19 @@ class SpeckleCallback:
 
     def __init__(self, name: str, checkpoints_root: str = "", checkpoint_basename: str = None,
                  max_checkpoints: int = -1, keep_when_multiple: int = 50):
-        # TODO: pour simplifier, mettre max_checkpoints à np.inf?
+        # TODO: arranger name et checkpoint_basename mieux que ça
+        # TODO: arranger max_checkpoints à np.inf si garder tout?
+        """
+        Creates a new SpeckleCallback object used to keep track of training and validation states during training phase.
+        :param name: str. The name of the callback.
+        :param checkpoints_root: str. The root directory where to save checkpoints. Defaults to the current working
+        directory.
+        :param checkpoint_basename: str. Serves the same purpose as `name`.
+        :param max_checkpoints: int. The maximum number of checkpoints to keep. Defaults to -1, all of them will be
+        kept.
+        :param keep_when_multiple: int. The number of epochs to wait before a new checkpoint is created and saved.
+        Defaults to 50.
+        """
         self.__name = name
         self.__checkpoints_root = checkpoints_root
         self.__checkpoint_basename = checkpoint_basename if checkpoint_basename is not None else self.__name
@@ -128,8 +140,7 @@ class SpeckleTrainingLoop:
         :param target: torch.Tensor. Tensor containing the target correlation time associated with each sequence of
         time steps.
 
-        :return: torch.Tensor or tuple of two torch.Tensor. If `return_predictions` is False, returns only the mean
-        loss. If `return_predictions` is True, returns the mean loss and the (log) predictions.
+        :return: tuple of two torch.Tensor. Returns the mean loss and the (log) predictions.
         """
         x = x.to(self.__device, non_blocking=True)
         T = T.to(self.__device, non_blocking=True)
@@ -144,7 +155,8 @@ class SpeckleTrainingLoop:
     def __train_epoch(self) -> tuple[float, torch.Tensor]:
         """
         Trains the model for a single epoch.
-        :return: the average training loss.
+        :return: tuple of a float and a torch.Tensor. The float is the average loss and the tensor contains the current
+        predictions and targets.
         """
         self.__model.train()
         losses = []
@@ -171,8 +183,9 @@ class SpeckleTrainingLoop:
 
     def __valid_epoch(self) -> tuple[float, torch.Tensor]:
         """
-        Calculates validation for a single epoch.
-        :return: the average validation loss.
+        Validates the model for a single epoch.
+        :return: tuple of a float and a torch.Tensor. The float is the average loss and the tensor contains the current
+        predictions and targets.
         """
         self.__model.eval()
         losses = []
@@ -197,7 +210,8 @@ class SpeckleTrainingLoop:
     def train(self, num_epochs: int, scheduler: torch.optim.lr_scheduler.LRScheduler = None,
               callback: SpeckleCallback = None) -> tuple[list, list]:
         """
-        Trains the model with optional validation.
+        Trains the model with optional validation. Will also save the targets and associated predictions for each epoch
+        after the training is completed.
         :param num_epochs: int. Number of epochs to train.
         :param scheduler: LRScheduler from PyTorch. Scheduler used to update the learning rate.
         Default is None, no scheduler.
@@ -265,7 +279,7 @@ class Overfit:
     def __init__(self, model: SpeckleNN, optimizer: torch.optim.Optimizer, loss_function: callable,
                  data_simulator: callable, *data_sim_args, **data_sim_kwargs):
         """
-        Class used to test overfitting of SpeckleNN on few.
+        Class used to test overfitting of SpeckleNN on few data points.
         :param model: SpeckleNN. The model to test.
         :param optimizer: Optimizer from PyTorch. Optimizer used to update the model parameters.
         :param loss_function: Loss function from PyTorch. Loss function used to compute the loss between the predicted
@@ -311,109 +325,3 @@ class Overfit:
             train = SpeckleTrainingLoop(self.__model, self.__optimizer, self.__loss_function, dataloader)
             losses, _ = train.train(num_epochs, scheduler=scheduler, callback=callback)
         return losses
-
-
-if __name__ == '__main__':
-
-    batch_size = 8
-    lr = 1e-3
-    n_epochs = 300
-    data_root = r"C:\Users\goubi\OtherGit\code_article_gabriel\source\speckles\data"
-    model_saves = r"C:\Users\goubi\OtherGit\code_article_gabriel\source\speckles\overfits"
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    n_data = 16
-    n_repeats = 2
-    # Régime tau_c < T: tau_c varie 1e-2 à 0.5 (linspace 8 points), T = 1
-    # Régime tau_c approx T: tau_c varie 0.8 à 1.2 (linspace 8 points), T = 1
-    # Régime tau_c > T: tau_c varie 1.5 à 20 (linspace 8 points), T = 1
-
-    # TODO: essayer avec gauss corrfunc, même tau_cs et T
-    T = np.array([1])
-    tau_cs_plus_petit = np.linspace(1e-2, 0.5, n_data // n_repeats)
-    tau_cs_approx = np.linspace(0.8, 1.2, n_data // n_repeats)
-    tau_cs_plus_grand = np.linspace(1.5, 20, n_data // n_repeats)
-    corrfuncs = [expon, gaussian]
-    n_trials = 10
-
-    # tau_c < T
-    # for i in range(n_trials):
-    #     for lr in [1e-4, 1e-3]:
-    #         for corrfunc in corrfuncs:
-    #             model = SpeckleNN(cnn_out_channels=(16, 32, 64)).to(device)
-    #             gen = MultipleTimeIntegratedTimeSeriesGenerator(tau_cs_plus_petit, T, [corrfunc], n_repeats)
-    #             optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    #             loss = nn.L1Loss()
-    #             o = Overfit(model, optimizer, loss, gen.generate, sim_width=128, speckle_size=3, time_series_length=50,
-    #                         correlation_function_sampling=100)
-    #             lr_str = str(lr).replace(".", "p")
-    #             callback_name = f"plus_petit_lr_{lr_str}_g1_{corrfunc.__name__}_data_len_{n_data}_trial_{i + 1}"
-    #             callback = SpeckleCallback(callback_name, model_saves,
-    #                                        max_checkpoints=5, keep_when_multiple=10)
-    #             losses = o(n_epochs, None, callback,
-    #                        dataloader_kwargs={"batch_size": batch_size, "shuffle": False, "num_workers": 4,
-    #                                           "pin_memory": True})
-
-    # tau_c approx T
-    for i in range(n_trials):
-        for lr in [1e-4, 1e-3]:
-            for corrfunc in corrfuncs:
-                model = SpeckleNN(cnn_out_channels=(16, 32, 64)).to(device)
-                gen = MultipleTimeIntegratedTimeSeriesGenerator(tau_cs_approx, T, [corrfunc], n_repeats)
-                optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-                loss = nn.L1Loss()
-                o = Overfit(model, optimizer, loss, gen.generate, sim_width=128, speckle_size=3, time_series_length=50,
-                            correlation_function_sampling=100)
-                lr_str = str(lr).replace(".", "p")
-                callback_name = f"approx_lr_{lr_str}_g1_{corrfunc.__name__}_data_len_{n_data}_trial_{i + 1}"
-                callback = SpeckleCallback(callback_name, model_saves,
-                                           max_checkpoints=5, keep_when_multiple=10)
-                losses = o(n_epochs, None, callback,
-                           dataloader_kwargs={"batch_size": batch_size, "shuffle": False, "num_workers": 4,
-                                              "pin_memory": True})
-    # tau_c > T
-    for i in range(n_trials):
-        for lr in [1e-4, 1e-3]:
-            for corrfunc in corrfuncs:
-                model = SpeckleNN(cnn_out_channels=(16, 32, 64)).to(device)
-                gen = MultipleTimeIntegratedTimeSeriesGenerator(tau_cs_approx, T, [corrfunc], n_repeats)
-                optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-                loss = nn.L1Loss()
-                o = Overfit(model, optimizer, loss, gen.generate, sim_width=128, speckle_size=3, time_series_length=50,
-                            correlation_function_sampling=100)
-                lr_str = str(lr).replace(".", "p")
-                callback_name = f"plus_grand_lr_{lr_str}_g1_{corrfunc.__name__}_data_len_{n_data}_trial_{i + 1}"
-                callback = SpeckleCallback(callback_name, model_saves,
-                                           max_checkpoints=5, keep_when_multiple=10)
-                losses = o(n_epochs, None, callback,
-                           dataloader_kwargs={"batch_size": batch_size, "shuffle": False, "num_workers": 4,
-                                              "pin_memory": True})
-
-    exit()
-
-    # load = torch.load(r"C:\Users\goubi\OtherGit\code_article_gabriel\source\speckles\callbacks\range_10_L1_epoch_4.pt")
-    # print(load.keys())
-    # print(load["epoch"])
-    # print(load["mean_train_loss"])
-    # print(load["mean_val_loss"])
-    # print(load["scheduler_state_dict"])
-    #
-    # exit()
-    metadata_name = "metadata.csv"
-    metadata_path = os.path.join(data_root, metadata_name)
-
-    metadata_splitter = MetadataSplitter.from_csv(metadata_path)
-    train, val = metadata_splitter(0.8)
-
-    train_dataset = SpeckleDataset(data_root, train.metadata)
-    val_dataset = SpeckleDataset(data_root, val.metadata)
-    range_ = 64
-    mini_train = Subset(train_dataset, range(range_))
-    mini_train_loader = DataLoader(mini_train, batch_size=batch_size, shuffle=False, pin_memory=True, num_workers=4)
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, pin_memory=True, num_workers=4)
-
-    lr_str = str(lr).replace(".", "p")
-    callback = SpeckleCallback(f"range_{range_}_L1_lr_{lr_str}", model_saves, max_checkpoints=5,
-                               keep_when_multiple=10)
-
-    trainer = SpeckleTrainingLoop(model, optimizer, loss, mini_train_loader)
-    trainer.train(num_epochs=n_epochs, callback=callback)
